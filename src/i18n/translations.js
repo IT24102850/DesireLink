@@ -287,6 +287,7 @@ export const translations = {
     "err.VALIDATION": "Some fields are invalid.",
     "err.NETWORK": "Can't reach the server. Check your connection.",
     "err.SERVER_ERROR": "Something went wrong. Please try again.",
+    "err.UNAVAILABLE": "The service is temporarily unavailable. Please try again in a few minutes.",
   },
 
   si: {
@@ -573,6 +574,7 @@ export const translations = {
     "err.VALIDATION": "සමහර ක්ෂේත්‍ර වලංගු නොවේ.",
     "err.NETWORK": "සේවාදායකයට සම්බන්ධ විය නොහැක. ඔබේ සම්බන්ධතාව පරීක්ෂා කරන්න.",
     "err.SERVER_ERROR": "යමක් වැරදී ඇත. නැවත උත්සාහ කරන්න.",
+    "err.UNAVAILABLE": "සේවාව තාවකාලිකව ලබා ගත නොහැක. මිනිත්තු කිහිපයකින් නැවත උත්සාහ කරන්න.",
   },
 
   ta: {
@@ -859,5 +861,6 @@ export const translations = {
     "err.VALIDATION": "சில புலங்கள் செல்லாதவை.",
     "err.NETWORK": "சேவையகத்தை அடைய முடியவில்லை. உங்கள் இணைப்பைச் சரிபார்க்கவும்.",
     "err.SERVER_ERROR": "ஏதோ தவறு நடந்தது. மீண்டும் முயற்சிக்கவும்.",
+    "err.UNAVAILABLE": "சேவை தற்காலிகமாகக் கிடைக்கவில்லை. சில நிமிடங்களில் மீண்டும் முயற்சிக்கவும்.",
   },
 };

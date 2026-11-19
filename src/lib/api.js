@@ -24,7 +24,13 @@ async function request(method, url, body) {
     throw new ApiError("NETWORK", 0);
   }
   const data = res.headers.get("content-type")?.includes("json") ? await res.json().catch(() => null) : null;
-  if (!res.ok) throw new ApiError(data?.error || (res.status === 429 ? "RATE_LIMITED" : "SERVER_ERROR"), res.status, data);
+  if (!res.ok) {
+    if (data?.error) throw new ApiError(data.error, res.status, data);
+    // No JSON body: the API itself didn't answer (backend down, deploying or
+    // not reachable through the proxy), as opposed to an app-level error.
+    const code = res.status === 429 ? "RATE_LIMITED" : [404, 502, 503, 504].includes(res.status) ? "UNAVAILABLE" : "SERVER_ERROR";
+    throw new ApiError(code, res.status, data);
+  }
   return data;
 }
 
