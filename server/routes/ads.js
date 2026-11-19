@@ -22,7 +22,8 @@ const photoUrl = (p) => `/media/${p.key}.webp`;
 export const publicWhere = () => ({
   status: "APPROVED",
   expiresAt: { gt: new Date() },
-  publisher: { isBanned: false, verification: { is: { status: "APPROVED" } } },
+  // Publisher must be unbanned, ID-approved, and have activated their account themselves.
+  publisher: { isBanned: false, termsAcceptedAt: { not: null }, verification: { is: { status: "APPROVED" } } },
 });
 
 export function displayStatus(ad) {
@@ -162,7 +163,7 @@ const adBody = z.object({
   contactPhone: z.string().max(20).optional().default(""),
 });
 
-function parseAd(body, user, verification) {
+export function parseAd(body, user, verification) {
   const p = adBody.safeParse(body);
   if (!p.success) {
     const f = p.error.issues.map((i) => i.path[0]);

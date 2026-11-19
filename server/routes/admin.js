@@ -3,13 +3,13 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { fail } from "../lib/errors.js";
 import { decryptNic, encryptNic, nicHash, hashPassword, randomToken } from "../lib/security.js";
-import { deleteImage, sendImage, upload, savePrivateImage } from "../lib/storage.js";
+import { deleteImage, sendImage, upload, savePrivateImage, saveMediaImage } from "../lib/storage.js";
 import { sendInvite } from "../lib/invite.js";
 import { checkNicEligibility, maskNic, calcAge } from "../../shared/nic.js";
 import { sendMail } from "../lib/mailer.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { formatLkPhone, normalizeLkPhone, LIMITS } from "../../shared/constants.js";
-import { adView, displayStatus } from "./ads.js";
+import { adView, displayStatus, parseAd } from "./ads.js";
 
 const r = Router();
 r.use(requireAdmin);
@@ -130,7 +130,7 @@ r.get(["/listings", "/ads"], async (req, res) => {
       take: PAGE,
       include: {
         photos: true,
-        publisher: { select: { email: true, isBanned: true, verification: { select: { nicGender: true, status: true } } } },
+        publisher: { select: { email: true, isBanned: true, termsAcceptedAt: true, verification: { select: { nicGender: true, status: true } } } },
         _count: { select: { reports: { where: { status: "OPEN" } } } },
       },
     }),
@@ -143,6 +143,8 @@ r.get(["/listings", "/ads"], async (req, res) => {
       ...adView(a, { full: true, owner: true }),
       publisherEmail: a.publisher.email,
       publisherBanned: a.publisher.isBanned,
+      publisherActivated: Boolean(a.publisher.termsAcceptedAt),
+      publisherVerification: a.publisher.verification?.status || "NOT_SUBMITTED",
       nicGender: a.publisher.verification?.nicGender?.toLowerCase(),
       openReports: a._count.reports,
     })),
@@ -262,6 +264,7 @@ const idFiles = upload.fields([
   { name: "front", maxCount: 1 },
   { name: "back", maxCount: 1 },
   { name: "selfie", maxCount: 1 },
+  { name: "photos", maxCount: LIMITS.photosPerAd },
 ]);
 
 r.post(["/users", "/publishers"], idFiles, async (req, res) => {
@@ -298,9 +301,31 @@ r.post(["/users", "/publishers"], idFiles, async (req, res) => {
     if (!files.front?.[0] || !files.back?.[0] || !files.selfie?.[0]) fail("FILES_REQUIRED");
   }
 
+  // Optional first ad prepared with the person. Age comes from the NIC, so a NIC is
+  // required; the same validation as a publisher's own ad applies. It stays hidden
+  // until they activate, their ID is approved and the ad itself is approved.
+  let adData = null;
+  if (req.body.withAd === "true") {
+    if (!check) fail("NIC_REQUIRED_FOR_AD");
+    adData = parseAd(
+      {
+        gender: req.body.adGender,
+        title: req.body.adTitle,
+        description: req.body.adDescription,
+        districtId: req.body.adDistrictId,
+        tags: req.body.adTags || "",
+        contactPhone: "",
+      },
+      { phone },
+      { nicGender: check.gender === "female" ? "FEMALE" : "MALE" }
+    );
+  }
+
   const saved = [];
+  const savedMedia = [];
   try {
     if (check) for (const k of ["front", "back", "selfie"]) saved.push(await savePrivateImage(files[k][0].buffer));
+    if (adData) for (const f of files.photos || []) savedMedia.push(await saveMediaImage(f.buffer));
     const user = await prisma.$transaction(async (tx) => {
       const hash = check ? nicHash(check.nic) : null;
       if (hash) {
@@ -308,7 +333,7 @@ r.post(["/users", "/publishers"], idFiles, async (req, res) => {
         const taken = await tx.verification.findFirst({ where: { nicHash: hash, status: { in: ["PENDING", "APPROVED"] } }, select: { id: true } });
         if (taken) fail("NIC_TAKEN", 409);
       }
-      return tx.user.create({
+      const created = await tx.user.create({
         data: {
           email,
           phone,
@@ -335,12 +360,30 @@ r.post(["/users", "/publishers"], idFiles, async (req, res) => {
           }),
         },
       });
+      if (adData) {
+        await tx.ad.create({
+          data: {
+            ...adData,
+            publisherId: created.id,
+            birthDate: new Date(check.birthDate + "T00:00:00Z"),
+            status: "PENDING_REVIEW",
+            photos: { create: savedMedia.map((m, i) => ({ key: m.key, width: m.width, height: m.height, sort: i })) },
+          },
+        });
+      }
+      return created;
     });
-    await audit(req, "CREATE_PUBLISHER", "user", user.id, { email, withIdDocuments: Boolean(check) });
-    await sendInvite(user);
-    res.status(201).json({ id: user.id, email: user.email, verification: check ? "PENDING" : "NOT_SUBMITTED" });
+    await audit(req, "CREATE_PUBLISHER", "user", user.id, { email, withIdDocuments: Boolean(check), withAd: Boolean(adData), photos: savedMedia.length });
+    await sendInvite(user, { withAd: Boolean(adData) });
+    res.status(201).json({
+      id: user.id,
+      email: user.email,
+      verification: check ? "PENDING" : "NOT_SUBMITTED",
+      ad: adData ? "PENDING_REVIEW" : null,
+      photos: savedMedia.length,
+    });
   } catch (e) {
-    await Promise.all(saved.map((x) => deleteImage("private", x.key)));
+    await Promise.all([...saved.map((x) => deleteImage("private", x.key)), ...savedMedia.map((x) => deleteImage("media", x.key))]);
     throw e;
   }
 });

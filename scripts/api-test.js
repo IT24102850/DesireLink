@@ -75,6 +75,8 @@ try {
   const { ensureStorage } = await import("../server/lib/storage.js");
   const { hashPassword, hotp } = await import("../server/lib/security.js");
   const step30 = () => Math.floor(Date.now() / 30_000);
+  const { calcAge } = await import("../shared/nic.js");
+  const calcAgeFor = (d) => calcAge(d);
   await ensureStorage();
   server = createApp().listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -552,6 +554,51 @@ try {
     assert.ok(v && v.images, "in queue with ID photos");
     assert.equal(v.birthDate, "1995-05-02");
     assert.equal((await admin.post("/api/admin/users", await idForm({ email: "inv3@test.lk", phone: "0751115555", consent: "true" }, false))).data.error, "EMAIL_TAKEN");
+  });
+  await step("prepared ad: needs a NIC; gender must match the NIC", async () => {
+    const adFields = { withAd: "true", adGender: "male", adTitle: "Kandy evenings", adDescription: "Prepared together with the admin, friendly and discreet, looking for good company.", adDistrictId: "4", adTags: "casual" };
+    let r = await admin.post("/api/admin/users", await idForm({ email: "inv4@test.lk", phone: "0751116666", consent: "true", ...adFields }, false));
+    assert.equal(r.data.error, "NIC_REQUIRED_FOR_AD");
+    r = await admin.post("/api/admin/users", await idForm({ email: "inv4@test.lk", phone: "0751116666", consent: "true", nic: "198911612345", ...adFields, adGender: "female" }));
+    assert.equal(r.data.error, "GENDER_MISMATCH");
+    assert.equal(await prisma.user.count({ where: { email: "inv4@test.lk" } }), 0, "nothing half-created");
+  });
+  await step("prepared ad with photos stays hidden until the person activates", async () => {
+    const fd = await idForm({
+      email: "inv4@test.lk", phone: "0751116666", consent: "true", nic: "198911612345",
+      withAd: "true", adGender: "male", adTitle: "Kandy evenings", adDescription: "Prepared together with the admin, friendly and discreet, looking for good company.", adDistrictId: "4", adTags: "casual,discreet",
+    });
+    fd.append("photos", await blob(), "p1.jpg");
+    fd.append("photos", await blob(), "p2.jpg");
+    let r = await admin.post("/api/admin/users", fd);
+    assert.equal(r.status, 201);
+    assert.equal(r.data.ad, "PENDING_REVIEW");
+    assert.equal(r.data.photos, 2);
+    const mail = [...globalThis.__mailSink].reverse().find((m) => m.to === "inv4@test.lk" && m.kind === "invite");
+    assert.equal(mail.vars.withAd, true, "invitation mentions the prepared ad");
+
+    // Admin approves ID and ad...
+    const v = (await admin.get("/api/admin/verifications")).data.items.find((x) => x.email === "inv4@test.lk");
+    assert.equal((await admin.post(`/api/admin/verifications/${v.id}/review`, { approve: true })).data.ok, true);
+    const queued = (await admin.get("/api/admin/listings")).data.items.find((a) => a.publisherEmail === "inv4@test.lk");
+    assert.equal(queued.publisherActivated, false);
+    assert.equal(queued.photos.length, 2);
+    assert.equal(queued.age, calcAgeFor("1989-04-25"));
+    assert.equal((await admin.post(`/api/admin/listings/${queued.id}/review`, { action: "approve" })).data.ok, true);
+    // ...but it is still NOT public, because the person has not activated.
+    assert.equal((await visitor.get(`/api/listings/${queued.id}`)).status, 404);
+    assert.ok(!(await visitor.get("/api/listings?districtId=4")).data.items.some((a) => a.id === queued.id));
+
+    // Person activates -> now public, with both photos.
+    const c = client();
+    r = await c.post("/api/auth/claim", { email: "inv4@test.lk", token: inviteToken("inv4@test.lk"), password: "inv4-own-password", acceptTerms: true });
+    assert.equal(r.data.user.termsAccepted, true);
+    const pub = await visitor.get(`/api/listings/${queued.id}`);
+    assert.equal(pub.status, 200);
+    assert.equal(pub.data.photos.length, 2);
+    assert.equal((await visitor.get(pub.data.photos[0].url)).status, 200);
+    // The person owns it: they can see it in their own list and delete it.
+    assert.equal((await c.get("/api/listings/mine")).data.items.length, 1);
   });
   await step("audit log records publisher creation and invitations", async () => {
     const actions = (await admin.get("/api/admin/audit")).data.items.map((a) => a.action);

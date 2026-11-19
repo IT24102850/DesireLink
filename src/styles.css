@@ -466,3 +466,5 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; hei
 .dialog:has(.id-photos) { max-width: 640px; }
 .consent-box { padding: 12px; border-radius: var(--radius-sm); border: 1px solid rgba(245, 177, 60, 0.4); background: rgba(245, 177, 60, 0.06); }
 @media (max-width: 640px) { .users-toolbar .btn.glow { width: 100%; } }
+
+.prepare-ad { padding: 14px; border: 1px dashed var(--line-2); border-radius: var(--radius-sm); }

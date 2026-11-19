@@ -143,9 +143,9 @@ export const api = {
     resolveReport: (id, action) => post(`/api/admin/reports/${id}`, { action }),
     users: (q, page) => get("/api/admin/users" + qs({ q, page })),
     setBanned: (id, banned, reason) => post(`/api/admin/users/${id}/ban`, { banned, reason }),
-    createPublisher: async (fields, { front, back, selfie } = {}) => {
+    createPublisher: async (fields, { front, back, selfie, photos = [] } = {}) => {
       const [f, b, s] = await shrinkAll([front, back, selfie]);
-      return request("POST", "/api/admin/users", form(fields, { front: f, back: b, selfie: s }));
+      return request("POST", "/api/admin/users", form(fields, { front: f, back: b, selfie: s, photos: await shrinkAll(photos) }));
     },
     resendInvite: (id) => post(`/api/admin/users/${id}/invite`),
     audit: (page) => get("/api/admin/audit" + qs({ page })),

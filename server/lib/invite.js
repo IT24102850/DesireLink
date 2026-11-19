@@ -9,13 +9,13 @@ export const INVITE_TTL_MS = 72 * 3_600_000;
 const tokenHash = (userId, token) => hmac(`INVITE:${userId}:${token}`);
 
 /** Issues a fresh invitation (older ones stop working) and emails the link. */
-export async function sendInvite(user) {
+export async function sendInvite(user, { withAd = false } = {}) {
   await prisma.authCode.updateMany({ where: { userId: user.id, purpose: "INVITE", usedAt: null }, data: { usedAt: new Date() } });
   const token = randomToken();
   await prisma.authCode.create({
     data: { userId: user.id, purpose: "INVITE", codeHash: tokenHash(user.id, token), expiresAt: new Date(Date.now() + INVITE_TTL_MS) },
   });
-  await sendMail(user.email, user.locale, "invite", { path: `/claim?email=${encodeURIComponent(user.email)}&token=${token}` });
+  await sendMail(user.email, user.locale, "invite", { withAd, path: `/claim?email=${encodeURIComponent(user.email)}&token=${token}` });
 }
 
 /** Validates and burns the invitation token. */

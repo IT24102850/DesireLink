@@ -14,7 +14,7 @@ const T = {
     },
     invite: {
       subject: "Activate your DesireLink publisher account",
-      lines: () => ["An administrator created a DesireLink publisher account for this email address at your request.", "To activate it, choose a password and accept the terms. The link is valid for 72 hours.", "If you did not ask for this, ignore this email. The account stays inactive and nothing is published."],
+      lines: ({ withAd } = {}) => [...(withAd ? ["A first ad was prepared with you. You can edit or delete it after activation; nothing is shown publicly until you activate and it is approved."] : []), "An administrator created a DesireLink publisher account for this email address at your request.", "To activate it, choose a password and accept the terms. The link is valid for 72 hours.", "If you did not ask for this, ignore this email. The account stays inactive and nothing is published."],
       cta: "Activate account",
     },
     verificationApproved: {
@@ -56,7 +56,7 @@ const T = {
     },
     invite: {
       subject: "ඔබේ DesireLink පළකරු ගිණුම සක්‍රීය කරන්න",
-      lines: () => ["ඔබේ ඉල්ලීම පරිදි පරිපාලකයෙකු මෙම විද්‍යුත් තැපැල් ලිපිනය සඳහා DesireLink පළකරු ගිණුමක් සාදා ඇත.", "එය සක්‍රීය කිරීමට, මුරපදයක් තෝරා නියමයන් පිළිගන්න. මෙම සබැඳිය පැය 72ක් වලංගුයි.", "ඔබ මෙය ඉල්ලුවේ නැත්නම්, මෙම ලිපිය නොසලකා හරින්න. ගිණුම අක්‍රීයව පවතින අතර කිසිවක් පළ නොවේ."],
+      lines: ({ withAd } = {}) => [...(withAd ? ["ඔබ සමඟ පළමු දැන්වීමක් සකස් කර ඇත. සක්‍රීය කිරීමෙන් පසු එය සංස්කරණය කිරීමට හෝ මකා දැමීමට හැක; ඔබ සක්‍රීය කර එය අනුමත වන තුරු කිසිවක් ප්‍රසිද්ධියේ නොපෙන්වයි."] : []), "ඔබේ ඉල්ලීම පරිදි පරිපාලකයෙකු මෙම විද්‍යුත් තැපැල් ලිපිනය සඳහා DesireLink පළකරු ගිණුමක් සාදා ඇත.", "එය සක්‍රීය කිරීමට, මුරපදයක් තෝරා නියමයන් පිළිගන්න. මෙම සබැඳිය පැය 72ක් වලංගුයි.", "ඔබ මෙය ඉල්ලුවේ නැත්නම්, මෙම ලිපිය නොසලකා හරින්න. ගිණුම අක්‍රීයව පවතින අතර කිසිවක් පළ නොවේ."],
       cta: "ගිණුම සක්‍රීය කරන්න",
     },
     verificationApproved: {
@@ -98,7 +98,7 @@ const T = {
     },
     invite: {
       subject: "உங்கள் DesireLink வெளியீட்டாளர் கணக்கைச் செயல்படுத்துங்கள்",
-      lines: () => ["உங்கள் கோரிக்கையின்படி ஒரு நிர்வாகி இந்த மின்னஞ்சல் முகவரிக்கு DesireLink வெளியீட்டாளர் கணக்கை உருவாக்கியுள்ளார்.", "செயல்படுத்த, கடவுச்சொல்லைத் தேர்ந்தெடுத்து விதிமுறைகளை ஏற்கவும். இந்த இணைப்பு 72 மணி நேரம் செல்லுபடியாகும்.", "நீங்கள் இதைக் கோரவில்லை என்றால், இந்த மின்னஞ்சலைப் புறக்கணிக்கவும். கணக்கு செயலற்றதாகவே இருக்கும், எதுவும் வெளியிடப்படாது."],
+      lines: ({ withAd } = {}) => [...(withAd ? ["உங்களுடன் முதல் விளம்பரம் தயாரிக்கப்பட்டது. செயல்படுத்திய பின் அதைத் திருத்தலாம் அல்லது நீக்கலாம்; நீங்கள் செயல்படுத்தி அது அங்கீகரிக்கப்படும் வரை எதுவும் பொதுவில் காட்டப்படாது."] : []), "உங்கள் கோரிக்கையின்படி ஒரு நிர்வாகி இந்த மின்னஞ்சல் முகவரிக்கு DesireLink வெளியீட்டாளர் கணக்கை உருவாக்கியுள்ளார்.", "செயல்படுத்த, கடவுச்சொல்லைத் தேர்ந்தெடுத்து விதிமுறைகளை ஏற்கவும். இந்த இணைப்பு 72 மணி நேரம் செல்லுபடியாகும்.", "நீங்கள் இதைக் கோரவில்லை என்றால், இந்த மின்னஞ்சலைப் புறக்கணிக்கவும். கணக்கு செயலற்றதாகவே இருக்கும், எதுவும் வெளியிடப்படாது."],
       cta: "கணக்கைச் செயல்படுத்து",
     },
     verificationApproved: {

@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "../i18n";
 import { api } from "../lib/api.js";
-import { districtName } from "../../shared/locations.js";
+import { districtName, DISTRICTS } from "../../shared/locations.js";
 import { Dialog, ErrorText, ImageField, Notice, ReasonDialog, Spinner, StatusBadge, useDocumentTitle } from "../components/ui.jsx";
 import { checkNicEligibility } from "../../shared/nic.js";
-import { normalizeLkPhone } from "../../shared/constants.js";
+import { normalizeLkPhone, AD_TAGS, LIMITS } from "../../shared/constants.js";
 
 const TABS = ["stats", "verifications", "ads", "reports", "users", "audit"];
 
@@ -235,6 +235,7 @@ function Ads({ onChange }) {
               <div className="muted small">
                 {t(a.gender)} · {a.age} {t("years")} · {districtName(a.districtId, lang)} · {t("publisher")}: {a.publisherEmail}
                 {a.publisherBanned && <> · <span className="error">{t("banned")}</span></>}
+                {a.publisherActivated === false && <> · <span className="badge warn">{t("notActivated")}</span></>}
               </div>
               <div className="muted small">{fmt(a.createdAt)}{a.openReports > 0 && <> · <span className="error">{a.openReports} {t("openReports")}</span></>}</div>
             </div>
@@ -447,14 +448,57 @@ function Users() {
 
 // ---------------------------------------------------------------------------------
 // Admin adds a publisher on someone's behalf. The account stays inactive until
-// the person activates it from the emailed link (own password + terms).
+// the person activates it from the emailed link (own password + terms). With a
+// NIC, the admin can also prepare their first ad (with photos); it stays hidden
+// until they activate, their ID is approved and the ad is approved.
 const EMPTY_PUBLISHER = { email: "", phone: "", locale: "si", nic: "", consent: false };
+const EMPTY_AD = { gender: "", title: "", description: "", districtId: "", tags: [] };
+
+function AdPhotosPicker({ files, onChange }) {
+  const { t } = useI18n();
+  const [urls, setUrls] = useState([]);
+  useEffect(() => {
+    const u = files.map((f) => URL.createObjectURL(f));
+    setUrls(u);
+    return () => u.forEach((x) => URL.revokeObjectURL(x));
+  }, [files]);
+  const slots = LIMITS.photosPerAd - files.length;
+  return (
+    <div className="photo-grid">
+      {urls.map((u, i) => (
+        <div key={u} className="photo-slot">
+          <img src={u} alt="" />
+          <button type="button" className="icon-btn remove" aria-label={t("removePhoto")} onClick={() => onChange(files.filter((_, j) => j !== i))}>×</button>
+        </div>
+      ))}
+      {slots > 0 && (
+        <label className="photo-slot add">
+          <span aria-hidden="true">＋</span>
+          <span className="small">{t("addPhotos")}</span>
+          <input
+            className="sr-only"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+            multiple
+            onChange={(e) => {
+              onChange([...files, ...[...(e.target.files || [])].slice(0, slots)]);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      )}
+    </div>
+  );
+}
 
 function AddPublisher({ open, onClose, onCreated }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [f, setF] = useState(EMPTY_PUBLISHER);
   const [files, setFiles] = useState({ front: null, back: null, selfie: null });
   const [withId, setWithId] = useState(false);
+  const [withAd, setWithAd] = useState(false);
+  const [ad, setAd] = useState(EMPTY_AD);
+  const [photos, setPhotos] = useState([]);
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -463,14 +507,21 @@ function AddPublisher({ open, onClose, onCreated }) {
       setF(EMPTY_PUBLISHER);
       setFiles({ front: null, back: null, selfie: null });
       setWithId(false);
+      setWithAd(false);
+      setAd(EMPTY_AD);
+      setPhotos([]);
       setErr(null);
     }
   }, [open]);
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
+  const setA = (k) => (e) => setAd({ ...ad, [k]: e.target.value });
   const phoneBad = Boolean(f.phone) && !normalizeLkPhone(f.phone);
   const preview = withId && f.nic.trim() ? checkNicEligibility(f.nic) : null;
   const idReady = !withId || Boolean(preview?.valid && files.front && files.back && files.selfie);
+  const adOn = withId && withAd;
+  const adReady = !adOn || Boolean(ad.gender && ad.title.trim().length >= 3 && ad.description.trim().length >= LIMITS.descriptionMin && ad.districtId);
+  const toggleTag = (k) => setAd({ ...ad, tags: ad.tags.includes(k) ? ad.tags.filter((x) => x !== k) : [...ad.tags, k] });
 
   const submit = async (e) => {
     e.preventDefault();
@@ -478,7 +529,8 @@ function AddPublisher({ open, onClose, onCreated }) {
     setErr(null);
     try {
       const fields = { email: f.email, phone: f.phone, locale: f.locale, consent: f.consent ? "true" : "false", nic: withId ? f.nic : "" };
-      await api.admin.createPublisher(fields, withId ? files : {});
+      if (adOn) Object.assign(fields, { withAd: "true", adGender: ad.gender, adTitle: ad.title, adDescription: ad.description, adDistrictId: ad.districtId, adTags: ad.tags.join(",") });
+      await api.admin.createPublisher(fields, withId ? { ...files, photos: adOn ? photos : [] } : {});
       onCreated(f.email.trim().toLowerCase());
     } catch (ex) {
       setErr(ex);
@@ -545,6 +597,55 @@ function AddPublisher({ open, onClose, onCreated }) {
               <ImageField label={t("selfie")} value={files.selfie} onChange={(x) => setFiles({ ...files, selfie: x })} required />
             </div>
             <small className="muted">{t("addIdNote")}</small>
+
+            <label className="check-label">
+              <input type="checkbox" checked={withAd} onChange={(e) => setWithAd(e.target.checked)} />
+              <span>{t("prepareAd")}</span>
+            </label>
+            {withAd && (
+              <fieldset className="stack prepare-ad">
+                <div className="gender-choice">
+                  {["female", "male", "transgender"].map((g) => {
+                    const disabled = preview?.valid ? g !== "transgender" && g !== preview.gender : g !== "transgender";
+                    return (
+                      <label key={g} className={`pill ${g} ${ad.gender === g ? "active" : ""} ${disabled ? "disabled" : ""}`}>
+                        <input type="radio" name="adGender" value={g} checked={ad.gender === g} disabled={disabled} onChange={setA("gender")} required />
+                        {t(g)}
+                      </label>
+                    );
+                  })}
+                </div>
+                <label>
+                  {t("title")}
+                  <input required minLength={3} maxLength={LIMITS.titleMax} value={ad.title} onChange={setA("title")} />
+                </label>
+                <label>
+                  {t("adDescription")}
+                  <textarea required rows={4} placeholder={t("adDescriptionPlaceholder")} minLength={LIMITS.descriptionMin} maxLength={LIMITS.descriptionMax} value={ad.description} onChange={setA("description")} />
+                  <small className="muted">{t("descriptionHint")} · {ad.description.length}/{LIMITS.descriptionMax}</small>
+                </label>
+                <label>
+                  {t("district")}
+                  <select required value={ad.districtId} onChange={setA("districtId")}>
+                    <option value="">—</option>
+                    {[...DISTRICTS].sort((a, b) => a[lang].localeCompare(b[lang], lang)).map((d) => (
+                      <option key={d.id} value={d.id}>{d[lang]}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="chips">
+                  {AD_TAGS.map((k) => (
+                    <button type="button" key={k} className={`chip toggle ${ad.tags.includes(k) ? "active" : ""}`} aria-pressed={ad.tags.includes(k)} onClick={() => toggleTag(k)}>
+                      {t(`tag.${k}`)}
+                    </button>
+                  ))}
+                </div>
+                <span className="field-label">{t("photos")}</span>
+                <small className="muted">{t("photosHint")}</small>
+                <AdPhotosPicker files={photos} onChange={setPhotos} />
+                <Notice kind="warn">{t("prepareAdNote")}</Notice>
+              </fieldset>
+            )}
           </fieldset>
         )}
 
@@ -556,7 +657,7 @@ function AddPublisher({ open, onClose, onCreated }) {
         <ErrorText error={err} />
         <div className="row end">
           <button type="button" className="btn ghost" onClick={onClose}>{t("cancel")}</button>
-          <button className="btn glow" disabled={busy || !f.consent || phoneBad || !idReady}>{busy ? t("loading") : t("createAndInvite")}</button>
+          <button className="btn glow" disabled={busy || !f.consent || phoneBad || !idReady || !adReady}>{busy ? t("loading") : t("createAndInvite")}</button>
         </div>
       </form>
     </Dialog>
