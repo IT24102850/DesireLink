@@ -337,6 +337,8 @@ export const translations = {
     "err.NIC_REQUIRED_FOR_AD": "Add their NIC to prepare an ad (age comes from the NIC).",
     adDescription: "Description",
     adDescriptionPlaceholder: "Describe the person and what they are looking for, in their own words.",
+    adFilterFields: "How visitors will find this ad",
+    adAgeFromNic: "Age shown on the ad. It comes from the NIC and updates automatically on each birthday; it cannot be typed.",
     "err.UNAVAILABLE": "The service is temporarily unavailable. Please try again in a few minutes.",
   },
 
@@ -674,6 +676,8 @@ export const translations = {
     "err.NIC_REQUIRED_FOR_AD": "දැන්වීමක් සකස් කිරීමට ඔවුන්ගේ NIC එක් කරන්න (වයස NIC එකෙන් ලැබේ).",
     adDescription: "විස්තරය",
     adDescriptionPlaceholder: "පුද්ගලයා සහ ඔවුන් සොයන දේ ඔවුන්ගේම වචනවලින් විස්තර කරන්න.",
+    adFilterFields: "අමුත්තන් මෙම දැන්වීම සොයා ගන්නා ආකාරය",
+    adAgeFromNic: "දැන්වීමේ පෙන්වන වයස. එය NIC එකෙන් ලැබෙන අතර සෑම උපන්දිනයකම ස්වයංක්‍රීයව යාවත්කාලීන වේ; එය ටයිප් කළ නොහැක.",
     "err.UNAVAILABLE": "සේවාව තාවකාලිකව ලබා ගත නොහැක. මිනිත්තු කිහිපයකින් නැවත උත්සාහ කරන්න.",
   },
 
@@ -1011,6 +1015,8 @@ export const translations = {
     "err.NIC_REQUIRED_FOR_AD": "விளம்பரம் தயாரிக்க அவரது NIC ஐச் சேர்க்கவும் (வயது NIC இலிருந்து வருகிறது).",
     adDescription: "விளக்கம்",
     adDescriptionPlaceholder: "நபரையும் அவர் தேடுவதையும் அவரது சொந்த வார்த்தைகளில் விவரிக்கவும்.",
+    adFilterFields: "பார்வையாளர்கள் இந்த விளம்பரத்தை எப்படிக் கண்டறிவார்கள்",
+    adAgeFromNic: "விளம்பரத்தில் காட்டப்படும் வயது. இது NIC இலிருந்து வருகிறது, ஒவ்வொரு பிறந்தநாளிலும் தானாகப் புதுப்பிக்கப்படும்; தட்டச்சு செய்ய முடியாது.",
     "err.UNAVAILABLE": "சேவை தற்காலிகமாகக் கிடைக்கவில்லை. சில நிமிடங்களில் மீண்டும் முயற்சிக்கவும்.",
   },
 };

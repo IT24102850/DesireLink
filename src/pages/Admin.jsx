@@ -604,6 +604,14 @@ function AddPublisher({ open, onClose, onCreated }) {
             </label>
             {withAd && (
               <fieldset className="stack prepare-ad">
+                <legend>{t("adFilterFields")}</legend>
+                {preview?.valid && (
+                  <p className="ad-age-line">
+                    <span className="age-big">{preview.age}<small>{t("years")}</small></span>
+                    <span className="muted small">{t("adAgeFromNic")}</span>
+                  </p>
+                )}
+                <span className="field-label">{t("gender")}</span>
                 <div className="gender-choice">
                   {["female", "male", "transgender"].map((g) => {
                     const disabled = preview?.valid ? g !== "transgender" && g !== preview.gender : g !== "transgender";
@@ -633,6 +641,7 @@ function AddPublisher({ open, onClose, onCreated }) {
                     ))}
                   </select>
                 </label>
+                <span className="field-label">{t("lookingFor")}</span>
                 <div className="chips">
                   {AD_TAGS.map((k) => (
                     <button type="button" key={k} className={`chip toggle ${ad.tags.includes(k) ? "active" : ""}`} aria-pressed={ad.tags.includes(k)} onClick={() => toggleTag(k)}>

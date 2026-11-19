@@ -468,3 +468,5 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; hei
 @media (max-width: 640px) { .users-toolbar .btn.glow { width: 100%; } }
 
 .prepare-ad { padding: 14px; border: 1px dashed var(--line-2); border-radius: var(--radius-sm); }
+.prepare-ad legend { font-weight: 700; color: var(--text); }
+.ad-age-line { display: flex; align-items: baseline; gap: 12px; margin: 0; flex-wrap: wrap; }
