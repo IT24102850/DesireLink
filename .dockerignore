@@ -1,0 +1,12 @@
+node_modules
+dist
+data
+backups
+.devdb
+.devdb-ready
+.env
+.env.*
+.git
+*.log
+*.png
+!public/*.png

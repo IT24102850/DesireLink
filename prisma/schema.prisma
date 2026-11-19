@@ -1,0 +1,219 @@
+// DesireLink database schema (PostgreSQL).
+// Roles: PUBLISHER (posts ads after ID verification) and ADMIN (moderates).
+// Visitors browse without an account.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PUBLISHER
+  ADMIN
+}
+
+enum Locale {
+  en
+  si
+  ta
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  TRANSGENDER
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AdStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  REMOVED
+}
+
+enum CodePurpose {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+enum ReportReason {
+  MINOR
+  NON_CONSENSUAL
+  EXPLICIT
+  SCAM
+  FAKE
+  OFFENSIVE
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  phone           String    @unique // normalized +947XXXXXXXX
+  passwordHash    String
+  role            Role      @default(PUBLISHER)
+  locale          Locale    @default(en)
+  emailVerifiedAt DateTime?
+  isBanned        Boolean   @default(false)
+  bannedReason    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  sessions     Session[]
+  codes        AuthCode[]
+  verification Verification?
+  ads          Ad[]
+  auditLogs    AuditLog[]    @relation("AdminActions")
+}
+
+// Opaque session tokens. Only the SHA-256 of the token is stored, so a DB leak
+// does not leak live sessions.
+model Session {
+  id         String   @id // sha256(token)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+  userAgent  String?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// One-time numeric codes for email confirmation and password reset.
+model AuthCode {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   CodePurpose
+  codeHash  String
+  attempts  Int         @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime    @default(now())
+
+  @@index([userId, purpose, createdAt])
+}
+
+// Identity verification. The NIC is stored AES-256-GCM encrypted, plus an
+// HMAC so the same NIC cannot be used by two accounts. Birth date and gender
+// are derived from the NIC by shared/nic.js, never typed by the user.
+model Verification {
+  id              String             @id @default(cuid())
+  userId          String             @unique
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          VerificationStatus @default(PENDING)
+
+  nicEncrypted    String
+  nicHash         String
+  nicMasked       String
+  nicFormat       String
+  birthDate       DateTime           @db.Date
+  nicGender       Gender
+
+  // Private storage keys. Deleted (file + key) as soon as an admin decides.
+  nicFrontKey     String?
+  nicBackKey      String?
+  selfieKey       String?
+
+  rejectionReason String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  submittedAt     DateTime           @default(now())
+
+  @@index([status, submittedAt])
+  @@index([nicHash])
+}
+
+model Ad {
+  id           String    @id @default(cuid())
+  publisherId  String
+  publisher    User      @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+
+  gender       Gender
+  title        String
+  description  String
+  districtId   Int
+  tags         String[]  @default([])
+  contactPhone String?
+
+  // Copied from the APPROVED verification when the ad is created. Age is
+  // computed from it at read time, and age filters become indexed date ranges.
+  birthDate    DateTime  @db.Date
+
+  status       AdStatus  @default(PENDING_REVIEW)
+  rejectReason String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  approvedAt   DateTime?
+  expiresAt    DateTime?
+  views        Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  photos  AdPhoto[]
+  reports AdReport[]
+
+  @@index([status, expiresAt, gender, districtId, birthDate])
+  @@index([publisherId, createdAt])
+}
+
+model AdPhoto {
+  id     String @id @default(cuid())
+  adId   String
+  ad     Ad     @relation(fields: [adId], references: [id], onDelete: Cascade)
+  key    String @unique
+  sort   Int    @default(0)
+  width  Int
+  height Int
+
+  @@index([adId, sort])
+}
+
+model AdReport {
+  id           String       @id @default(cuid())
+  adId         String
+  ad           Ad           @relation(fields: [adId], references: [id], onDelete: Cascade)
+  reason       ReportReason
+  details      String?
+  reporterHash String // HMAC of IP, for dedupe/abuse limits without storing the IP
+  status       ReportStatus @default(OPEN)
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime     @default(now())
+
+  @@index([status, createdAt])
+  @@index([adId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  admin      User     @relation("AdminActions", fields: [adminId], references: [id])
+  action     String
+  targetType String
+  targetId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetId])
+}

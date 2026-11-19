@@ -1,0 +1,13 @@
+{
+  "name": "DesireLink",
+  "short_name": "DesireLink",
+  "description": "Verified adult personals in Sri Lanka (18+)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0508",
+  "theme_color": "#0c0508",
+  "icons": [
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

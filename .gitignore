@@ -1,0 +1,11 @@
+node_modules
+dist
+data
+.devdb
+.devdb-ready
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.log
+.DS_Store

@@ -1,0 +1,54 @@
+{
+  "name": "desirelink",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n db,api,web -c magenta,cyan,yellow \"node scripts/dev-db.js\" \"node scripts/wait-db.js && node --watch-path=server --watch-path=shared server/index.js\" \"vite\"",
+    "dev:web": "vite",
+    "dev:api": "node --watch-path=server --watch-path=shared server/index.js",
+    "db:dev": "node scripts/dev-db.js",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "migrate": "prisma migrate deploy",
+    "migrate:dev": "node scripts/prisma.js migrate dev",
+    "prisma": "node scripts/prisma.js",
+    "create-admin": "node scripts/create-admin.js",
+    "seed:demo": "node scripts/seed-demo.js",
+    "gen-secrets": "node scripts/gen-secrets.js",
+    "build:logo": "node scripts/build-logo.js",
+    "test": "node shared/nic.test.mjs && node --env-file-if-exists=.env.test scripts/api-test.js",
+    "test:nic": "node shared/nic.test.mjs",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@fontsource/noto-sans": "^5.1.0",
+    "@fontsource/noto-sans-sinhala": "^5.1.0",
+    "@fontsource/noto-sans-tamil": "^5.1.0",
+    "@fontsource/playfair-display": "^5.1.0",
+    "@node-rs/argon2": "^2.0.2",
+    "@prisma/client": "^6.19.0",
+    "compression": "^1.8.0",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^7.0.9",
+    "prisma": "^6.19.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "sharp": "^0.34.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.2.1",
+    "embedded-postgres": "17.12.0-beta.19",
+    "vite": "^5.4.8"
+  }
+}
