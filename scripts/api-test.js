@@ -225,7 +225,7 @@ try {
     assert.equal(r.data.error, "NIC_TAKEN");
   });
   await step("cannot post before approval", async () => {
-    const r = await A.post("/api/ads", await adForm(goodAd));
+    const r = await A.post("/api/listings", await adForm(goodAd));
     assert.equal(r.data.error, "NOT_VERIFIED");
   });
 
@@ -319,7 +319,7 @@ try {
     assert.equal((await visitor.get("/api/admin/stats")).status, 401);
     assert.equal((await A.get("/api/admin/stats")).status, 401, "publisher session never reaches admin APIs");
     assert.equal((await A.get(`/api/admin/verifications/${verificationId}/image/front`)).status, 401);
-    assert.equal((await visitor.get("/api/ads/mine")).status, 401);
+    assert.equal((await visitor.get("/api/listings/mine")).status, 401);
   });
   let idKeys;
   await step("admin sees queue, ID images, reveals NIC (audited)", async () => {
@@ -350,41 +350,41 @@ try {
 
   console.log("ads");
   await step("gender must match NIC; trans allowed", async () => {
-    let r = await A.post("/api/ads", await adForm({ ...goodAd, gender: "male" }));
+    let r = await A.post("/api/listings", await adForm({ ...goodAd, gender: "male" }));
     assert.equal(r.data.error, "GENDER_MISMATCH");
-    r = await A.post("/api/ads", await adForm({ ...goodAd, gender: "transgender", title: "Trans ad" }));
+    r = await A.post("/api/listings", await adForm({ ...goodAd, gender: "transgender", title: "Trans ad" }));
     assert.equal(r.status, 201);
-    await A.del(`/api/ads/${r.data.id}`);
+    await A.del(`/api/listings/${r.data.id}`);
   });
   await step("content filter blocks minor-implying terms", async () => {
-    const r = await A.post("/api/ads", await adForm({ ...goodAd, description: "Sweet 17 years old schoolgirl looking for fun times out." }));
+    const r = await A.post("/api/listings", await adForm({ ...goodAd, description: "Sweet 17 years old schoolgirl looking for fun times out." }));
     assert.equal(r.data.error, "CONTENT_NOT_ALLOWED");
   });
   await step("description length enforced", async () => {
-    const r = await A.post("/api/ads", await adForm({ ...goodAd, description: "too short" }));
+    const r = await A.post("/api/listings", await adForm({ ...goodAd, description: "too short" }));
     assert.equal(r.data.error, "DESCRIPTION_LENGTH");
   });
   await step("create ad with photos -> pending, hidden from public", async () => {
-    const r = await A.post("/api/ads", await adForm(goodAd, 2));
+    const r = await A.post("/api/listings", await adForm(goodAd, 2));
     assert.equal(r.status, 201);
     assert.equal(r.data.status, "PENDING_REVIEW");
     assert.equal(r.data.photos.length, 2);
     adId = r.data.id;
-    assert.equal((await visitor.get(`/api/ads/${adId}`)).status, 404);
+    assert.equal((await visitor.get(`/api/listings/${adId}`)).status, 404);
     assert.equal((await visitor.get(r.data.photos[0].url)).status, 404);
     assert.equal((await A.get(r.data.photos[0].url)).status, 200);
-    assert.equal((await visitor.get("/api/ads")).data.total, 0);
+    assert.equal((await visitor.get("/api/listings")).data.total, 0);
   });
   await step("age is derived, never accepted from client", async () => {
-    const r = await A.post("/api/ads", await adForm({ ...goodAd, age: 19, birthDate: "2005-01-01", title: "Age spoof" }));
+    const r = await A.post("/api/listings", await adForm({ ...goodAd, age: 19, birthDate: "2005-01-01", title: "Age spoof" }));
     const expected = new Date().getUTCFullYear() - 1998 - (new Date() < new Date(Date.UTC(new Date().getUTCFullYear(), 7, 13)) ? 1 : 0);
     assert.equal(r.data.age, expected);
-    await A.del(`/api/ads/${r.data.id}`);
+    await A.del(`/api/listings/${r.data.id}`);
   });
   await step("admin approves -> public, with 30-day expiry", async () => {
-    const r = await admin.post(`/api/admin/ads/${adId}/review`, { action: "approve" });
+    const r = await admin.post(`/api/admin/listings/${adId}/review`, { action: "approve" });
     assert.equal(r.data.ok, true);
-    const pub = await visitor.get(`/api/ads/${adId}`);
+    const pub = await visitor.get(`/api/listings/${adId}`);
     assert.equal(pub.status, 200);
     assert.equal(pub.data.hasPhone, true);
     assert.equal(pub.data.contactPhone, undefined, "phone must not be in payload");
@@ -393,8 +393,8 @@ try {
     assert.ok(Math.abs(ad.expiresAt - Date.now() - 30 * 86400000) < 60000);
   });
   await step("filters: gender, district, age range, tags", async () => {
-    const age = (await visitor.get(`/api/ads/${adId}`)).data.age;
-    const count = async (q) => (await visitor.get("/api/ads?" + new URLSearchParams(q))).data.total;
+    const age = (await visitor.get(`/api/listings/${adId}`)).data.age;
+    const count = async (q) => (await visitor.get("/api/listings?" + new URLSearchParams(q))).data.total;
     assert.equal(await count({}), 1);
     assert.equal(await count({ gender: "female" }), 1);
     assert.equal(await count({ gender: "male" }), 0);
@@ -408,52 +408,52 @@ try {
     assert.equal(await count({ gender: "garbage", ageMin: "abc" }), 1, "bad params ignored");
   });
   await step("public photo served without EXIF", async () => {
-    const ad = (await visitor.get(`/api/ads/${adId}`)).data;
+    const ad = (await visitor.get(`/api/listings/${adId}`)).data;
     const p = await visitor.get(ad.photos[0].url);
     assert.equal(p.status, 200);
     assert.equal((await sharp(p.data).metadata()).exif, undefined);
   });
   await step("phone revealed only on request", async () => {
-    const r = await visitor.post(`/api/ads/${adId}/contact`);
+    const r = await visitor.post(`/api/listings/${adId}/contact`);
     assert.equal(r.data.tel, "+94771234567");
     assert.equal(r.data.phone, "077 123 4567");
   });
   await step("renew only near expiry", async () => {
-    let r = await A.post(`/api/ads/${adId}/renew`);
+    let r = await A.post(`/api/listings/${adId}/renew`);
     assert.equal(r.data.error, "CANNOT_RENEW");
     await prisma.ad.update({ where: { id: adId }, data: { expiresAt: new Date(Date.now() - 1000) } });
-    assert.equal((await visitor.get(`/api/ads/${adId}`)).status, 404, "expired ads are hidden");
-    assert.equal((await A.get("/api/ads/mine")).data.items[0].status, "EXPIRED");
-    r = await A.post(`/api/ads/${adId}/renew`);
+    assert.equal((await visitor.get(`/api/listings/${adId}`)).status, 404, "expired ads are hidden");
+    assert.equal((await A.get("/api/listings/mine")).data.items[0].status, "EXPIRED");
+    r = await A.post(`/api/listings/${adId}/renew`);
     assert.equal(r.status, 200);
-    assert.equal((await visitor.get(`/api/ads/${adId}`)).status, 200);
+    assert.equal((await visitor.get(`/api/listings/${adId}`)).status, 200);
   });
   await step("edit sends ad back to review, keeps chosen photos", async () => {
-    const mine = (await A.get("/api/ads/mine")).data.items.find((a) => a.id === adId);
+    const mine = (await A.get("/api/listings/mine")).data.items.find((a) => a.id === adId);
     const fd = await adForm({ ...goodAd, title: "Edited title", keepPhotos: JSON.stringify([mine.photos[0].id]) }, 1);
-    const r = await A.put(`/api/ads/${adId}`, fd);
+    const r = await A.put(`/api/listings/${adId}`, fd);
     assert.equal(r.data.status, "PENDING_REVIEW");
     assert.equal(r.data.photos.length, 2);
     assert.equal(fs.existsSync(path.join(dataDir, "media", mine.photos[1].url.split("/").pop())), false, "dropped photo deleted");
-    assert.equal((await visitor.get(`/api/ads/${adId}`)).status, 404);
-    await admin.post(`/api/admin/ads/${adId}/review`, { action: "approve" });
+    assert.equal((await visitor.get(`/api/listings/${adId}`)).status, 404);
+    await admin.post(`/api/admin/listings/${adId}/review`, { action: "approve" });
   });
   await step("other publishers cannot edit or delete", async () => {
-    assert.equal((await B.del(`/api/ads/${adId}`)).status, 404);
+    assert.equal((await B.del(`/api/listings/${adId}`)).status, 404);
   });
 
   console.log("reports, bans, audit");
   await step("report -> admin removes -> hidden, report resolved", async () => {
-    let r = await visitor.post(`/api/ads/${adId}/report`, { reason: "FAKE", details: "stolen photos" });
+    let r = await visitor.post(`/api/listings/${adId}/report`, { reason: "FAKE", details: "stolen photos" });
     assert.equal(r.status, 201);
-    r = await visitor.post(`/api/ads/${adId}/report`, { reason: "BOGUS" });
+    r = await visitor.post(`/api/listings/${adId}/report`, { reason: "BOGUS" });
     assert.equal(r.data.error, "FIELDS_REQUIRED");
     const reps = await admin.get("/api/admin/reports");
     assert.equal(reps.data.items.length, 1);
-    await admin.post(`/api/admin/ads/${adId}/review`, { action: "remove", reason: "Fake photos" });
-    assert.equal((await visitor.get(`/api/ads/${adId}`)).status, 404);
+    await admin.post(`/api/admin/listings/${adId}/review`, { action: "remove", reason: "Fake photos" });
+    assert.equal((await visitor.get(`/api/listings/${adId}`)).status, 404);
     assert.equal((await admin.get("/api/admin/reports")).data.items.length, 0);
-    assert.equal((await A.put(`/api/ads/${adId}`, await adForm(goodAd))).data.error, "AD_REMOVED");
+    assert.equal((await A.put(`/api/listings/${adId}`, await adForm(goodAd))).data.error, "AD_REMOVED");
   });
   await step("ban kills sessions and blocks login + re-registration", async () => {
     const u = await prisma.user.findUnique({ where: { email: "a@test.lk" } });
@@ -493,16 +493,21 @@ try {
 
   console.log("http");
   await step("security headers present", async () => {
-    const r = await visitor.get("/api/ads");
+    const r = await visitor.get("/api/listings");
     assert.match(r.headers.get("content-security-policy"), /frame-ancestors 'none'/);
     assert.equal(r.headers.get("x-content-type-options"), "nosniff");
     assert.equal(r.headers.get("x-powered-by"), null);
   });
+  await step("legacy /api/ads alias still answers (old cached clients)", async () => {
+    const r = await visitor.get("/api/ads");
+    assert.equal(r.status, 200);
+    assert.ok(Array.isArray(r.data.items));
+  });
   await step("healthz", async () => assert.equal((await visitor.get("/healthz")).data.ok, true));
   await step("origin guard: requests bypassing the CDN are rejected", async () => {
-    let r = await fetch(base + "/api/ads");
+    let r = await fetch(base + "/api/listings");
     assert.equal(r.status, 403);
-    r = await fetch(base + "/api/ads", { headers: { "x-origin-secret": "wrong-secret-wrong-secret-wrong-secret" } });
+    r = await fetch(base + "/api/listings", { headers: { "x-origin-secret": "wrong-secret-wrong-secret-wrong-secret" } });
     assert.equal(r.status, 403);
     r = await fetch(base + "/healthz");
     assert.equal(r.status, 200, "health check must work without the secret");
@@ -512,7 +517,7 @@ try {
     await prisma.user.create({ data: { email: "cache@test.lk", phone: "+94709999999", emailVerifiedAt: new Date(), passwordHash: await hashPassword("cache-password-1") } });
     await c.post("/api/auth/login", { email: "cache@test.lk", password: "cache-password-1" });
     await prisma.session.updateMany({ data: { lastSeenAt: new Date(Date.now() - 2 * 3_600_000) } });
-    const list = await c.get("/api/ads");
+    const list = await c.get("/api/listings");
     assert.match(list.headers.get("cache-control"), /public/);
     assert.equal(list.headers.get("set-cookie"), null);
     const me = await c.get("/api/auth/me");

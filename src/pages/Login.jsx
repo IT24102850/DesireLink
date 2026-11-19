@@ -26,7 +26,7 @@ export default function Login() {
     try {
       const { user } = await api.login(f);
       setUser(user);
-      const home = !user.emailVerified ? "/confirm-email" : "/my-ads";
+      const home = !user.emailVerified ? "/confirm-email" : "/my-listings";
       nav(safeNext(params.get("next"), home), { replace: true });
     } catch (ex) {
       setErr(ex);

@@ -41,15 +41,15 @@ export default function MyAds() {
       {msg && <p className="ok-text" role="status">{msg}</p>}
       {!ads && !err && <Spinner />}
       {ads?.length === 0 && <div className="empty"><p>{t("noMyAds")}</p></div>}
-      <div className="my-ads">
+      <div className="my-listings">
         {ads?.map((a) => (
-          <div key={a.id} className="card my-ad">
-            <Link to={`/ad/${a.id}`} className="my-ad-thumb">
+          <div key={a.id} className="card my-listing">
+            <Link to={`/p/${a.id}`} className="listing-thumb">
               {a.photo ? <img src={a.photo} alt="" loading="lazy" /> : <div className={`placeholder ${a.gender}`}><span>{a.title[0]}</span></div>}
             </Link>
-            <div className="my-ad-body">
+            <div className="listing-body">
               <div className="row between wrap">
-                <h3><Link to={`/ad/${a.id}`}>{a.title}</Link></h3>
+                <h3><Link to={`/p/${a.id}`}>{a.title}</Link></h3>
                 <StatusBadge status={a.status} />
               </div>
               <p className="muted small">

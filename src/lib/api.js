@@ -109,15 +109,15 @@ export const api = {
   },
 
   // ads
-  listAds: (filters) => get("/api/ads" + qs(filters)),
-  getAd: (id) => get(`/api/ads/${encodeURIComponent(id)}`),
-  revealContact: (id) => post(`/api/ads/${encodeURIComponent(id)}/contact`),
-  reportAd: (id, reason, details) => post(`/api/ads/${encodeURIComponent(id)}/report`, { reason, details }),
-  myAds: () => get("/api/ads/mine"),
-  createAd: async (fields, photos) => request("POST", "/api/ads", form(fields, { photos: await shrinkAll(photos) })),
-  updateAd: async (id, fields, photos) => request("PUT", `/api/ads/${encodeURIComponent(id)}`, form(fields, { photos: await shrinkAll(photos) })),
-  deleteAd: (id) => request("DELETE", `/api/ads/${encodeURIComponent(id)}`),
-  renewAd: (id) => post(`/api/ads/${encodeURIComponent(id)}/renew`),
+  listAds: (filters) => get("/api/listings" + qs(filters)),
+  getAd: (id) => get(`/api/listings/${encodeURIComponent(id)}`),
+  revealContact: (id) => post(`/api/listings/${encodeURIComponent(id)}/contact`),
+  reportAd: (id, reason, details) => post(`/api/listings/${encodeURIComponent(id)}/report`, { reason, details }),
+  myAds: () => get("/api/listings/mine"),
+  createAd: async (fields, photos) => request("POST", "/api/listings", form(fields, { photos: await shrinkAll(photos) })),
+  updateAd: async (id, fields, photos) => request("PUT", `/api/listings/${encodeURIComponent(id)}`, form(fields, { photos: await shrinkAll(photos) })),
+  deleteAd: (id) => request("DELETE", `/api/listings/${encodeURIComponent(id)}`),
+  renewAd: (id) => post(`/api/listings/${encodeURIComponent(id)}/renew`),
 
   // admin portal sign-in (password -> 2FA)
   adminAuth: {
@@ -136,8 +136,8 @@ export const api = {
     verifications: (status) => get("/api/admin/verifications" + qs({ status })),
     revealNic: (id) => post(`/api/admin/verifications/${id}/reveal-nic`),
     reviewVerification: (id, approve, reason) => post(`/api/admin/verifications/${id}/review`, { approve, reason }),
-    ads: (status, page) => get("/api/admin/ads" + qs({ status, page })),
-    reviewAd: (id, action, reason) => post(`/api/admin/ads/${id}/review`, { action, reason }),
+    ads: (status, page) => get("/api/admin/listings" + qs({ status, page })),
+    reviewAd: (id, action, reason) => post(`/api/admin/listings/${id}/review`, { action, reason }),
     reports: (status) => get("/api/admin/reports" + qs({ status })),
     resolveReport: (id, action) => post(`/api/admin/reports/${id}`, { action }),
     users: (q, page) => get("/api/admin/users" + qs({ q, page })),

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Routes, Route, Link, useLocation } from "react-router-dom";
+import { Routes, Route, Link, Navigate, useLocation, useParams } from "react-router-dom";
 import Header from "./components/Header.jsx";
 import AgeGate from "./components/AgeGate.jsx";
 import { Spinner } from "./components/ui.jsx";
@@ -19,6 +19,13 @@ const PostAd = lazy(() => import("./pages/PostAd.jsx"));
 const MyAds = lazy(() => import("./pages/MyAds.jsx"));
 const Account = lazy(() => import("./pages/Account.jsx"));
 const AdminApp = lazy(() => import("./admin/AdminApp.jsx"));
+
+// Old /ad/:id links (shared before the rename) keep working.
+// Paths avoid "ad"/"ads" because ad blockers hide or block anything matching them.
+function LegacyAdRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/p/${id}`} replace />;
+}
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -51,7 +58,8 @@ export default function App() {
         <Suspense fallback={<Spinner />}>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/ad/:id" element={<AdDetail />} />
+            <Route path="/p/:id" element={<AdDetail />} />
+            <Route path="/ad/:id" element={<LegacyAdRedirect />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -61,7 +69,8 @@ export default function App() {
             <Route path="/verify" element={<RequireRole role="PUBLISHER"><Verify /></RequireRole>} />
             <Route path="/post" element={<RequireRole role="PUBLISHER"><PostAd /></RequireRole>} />
             <Route path="/edit/:id" element={<RequireRole role="PUBLISHER"><PostAd /></RequireRole>} />
-            <Route path="/my-ads" element={<RequireRole role="PUBLISHER"><MyAds /></RequireRole>} />
+            <Route path="/my-listings" element={<RequireRole role="PUBLISHER"><MyAds /></RequireRole>} />
+            <Route path="/my-ads" element={<Navigate to="/my-listings" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

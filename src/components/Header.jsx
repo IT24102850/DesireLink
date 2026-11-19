@@ -32,7 +32,7 @@ export default function Header() {
       <NavLink to="/" end>{t("discover")}</NavLink>
       {user?.role === "PUBLISHER" && (
         <>
-          <NavLink to="/my-ads">{t("myAds")}</NavLink>
+          <NavLink to="/my-listings">{t("myAds")}</NavLink>
           <NavLink to="/verify">{t("verification")}</NavLink>
         </>
       )}

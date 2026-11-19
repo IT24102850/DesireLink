@@ -85,7 +85,8 @@ export function createApp() {
   api.use(loadSession, sameOrigin);
   api.use("/auth", authRoutes);
   api.use("/verification", verificationRoutes);
-  api.use("/ads", adRoutes);
+  // "/listings" is canonical: ad blockers block or hide anything under "/ads".
+  api.use(["/listings", "/ads"], adRoutes);
   api.use("/admin-auth", adminAuthRoutes);
   api.use("/admin", adminRoutes);
   api.use((_req, res) => res.status(404).json({ error: "NOT_FOUND" }));

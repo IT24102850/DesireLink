@@ -116,7 +116,7 @@ r.post("/verifications/:id/review", async (req, res) => {
 });
 
 // ---- ads -----------------------------------------------------------------------------
-r.get("/ads", async (req, res) => {
+r.get(["/listings", "/ads"], async (req, res) => {
   const status = z.enum(["PENDING_REVIEW", "APPROVED", "REJECTED", "REMOVED"]).catch("PENDING_REVIEW").parse(req.query.status);
   const p = page(req.query);
   const where = { status };
@@ -148,7 +148,7 @@ r.get("/ads", async (req, res) => {
   });
 });
 
-r.post("/ads/:id/review", async (req, res) => {
+r.post(["/listings/:id/review", "/ads/:id/review"], async (req, res) => {
   const body = z.object({ action: z.enum(["approve", "reject", "remove"]), reason }).parse(req.body);
   if (body.action !== "approve" && !body.reason) fail("REASON_REQUIRED");
   const ad = await prisma.ad.findUnique({ where: { id: String(req.params.id) }, include: { publisher: true } });
@@ -167,7 +167,7 @@ r.post("/ads/:id/review", async (req, res) => {
   }
   await audit(req, `${body.action.toUpperCase()}_AD`, "ad", ad.id, body.reason ? { reason: body.reason } : null);
   const kind = { approve: "adApproved", reject: "adRejected", remove: "adRemoved" }[body.action];
-  await sendMail(ad.publisher.email, ad.publisher.locale, kind, { title: ad.title, reason: body.reason, path: "/my-ads" });
+  await sendMail(ad.publisher.email, ad.publisher.locale, kind, { title: ad.title, reason: body.reason, path: "/my-listings" });
   res.json({ ok: true });
 });
 

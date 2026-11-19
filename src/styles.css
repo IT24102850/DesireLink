@@ -233,11 +233,11 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; hei
 
 /* ---- ad cards -------------------------------------------------------------- */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; }
-.ad-card { display: flex; flex-direction: column; border-radius: var(--radius); overflow: hidden; background: var(--card); border: 1px solid var(--line); color: var(--text); transition: transform 0.2s, box-shadow 0.25s, border-color 0.2s; }
-.ad-card:hover { color: var(--text); transform: translateY(-4px); border-color: var(--line-2); box-shadow: 0 22px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(212, 42, 85, 0.3), 0 10px 40px rgba(212, 42, 85, 0.25); }
+.pcard { display: flex; flex-direction: column; border-radius: var(--radius); overflow: hidden; background: var(--card); border: 1px solid var(--line); color: var(--text); transition: transform 0.2s, box-shadow 0.25s, border-color 0.2s; }
+.pcard:hover { color: var(--text); transform: translateY(-4px); border-color: var(--line-2); box-shadow: 0 22px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(212, 42, 85, 0.3), 0 10px 40px rgba(212, 42, 85, 0.25); }
 .thumb { position: relative; aspect-ratio: 3 / 4; overflow: hidden; background: var(--bg-2); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
-.ad-card:hover .thumb img { transform: scale(1.05); }
+.pcard:hover .thumb img { transform: scale(1.05); }
 .thumb-shade { position: absolute; inset: 40% 0 0; background: linear-gradient(180deg, transparent, rgba(12, 5, 8, 0.92)); pointer-events: none; }
 .thumb .verified { position: absolute; top: 10px; left: 10px; width: 28px; height: 28px; justify-content: center; background: rgba(12, 5, 8, 0.7); border-radius: 50%; backdrop-filter: blur(4px); }
 .photo-count { position: absolute; top: 10px; right: 10px; font-size: 0.75rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: rgba(12, 5, 8, 0.7); }
@@ -250,8 +250,8 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; hei
 .gender-dot.male::before { background: #f58a3c; }
 .gender-dot.transgender::before { background: linear-gradient(90deg, #5bcefa, #f5a9b8); }
 .card-body { padding: 12px 14px 16px; display: grid; gap: 6px; min-width: 0; }
-.ad-card { min-width: 0; }
-.ad-card .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.pcard { min-width: 0; }
+.pcard .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .card-body h3 { overflow-wrap: anywhere; }
 .card-body h3 { font-size: 1rem; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .place { display: flex; align-items: center; gap: 5px; margin: 0; color: var(--muted); font-size: 0.85rem; }
@@ -290,15 +290,15 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; hei
 /* ---- my ads / photos -------------------------------------------------------- */
 .page-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
 .page-head h1 { margin: 0; }
-.my-ads { display: grid; gap: 14px; }
-.my-ad { display: grid; grid-template-columns: 110px 1fr; gap: 16px; padding: 14px; }
-.my-ad-thumb { aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; }
-.my-ad-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.my-ad-thumb .placeholder span { font-size: 2.4rem; }
-.my-ad-body { display: grid; gap: 8px; align-content: start; min-width: 0; }
-.my-ad-body h3 { margin: 0; font-size: 1.05rem; }
-.my-ad-body h3 a { color: var(--text); }
-.my-ad-body p { margin: 0; }
+.my-listings { display: grid; gap: 14px; }
+.my-listing { display: grid; grid-template-columns: 110px 1fr; gap: 16px; padding: 14px; }
+.listing-thumb { aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; }
+.listing-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.listing-thumb .placeholder span { font-size: 2.4rem; }
+.listing-body { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.listing-body h3 { margin: 0; font-size: 1.05rem; }
+.listing-body h3 a { color: var(--text); }
+.listing-body p { margin: 0; }
 .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
 .photo-slot { position: relative; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; background: var(--bg-2); border: 1px solid var(--line-2); }
 .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
@@ -426,7 +426,7 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; hei
   .card-body h3 { font-size: 0.92rem; }
   .card { padding: 18px; }
   .id-photos, .id-images { grid-template-columns: 1fr; }
-  .my-ad { grid-template-columns: 84px 1fr; gap: 12px; }
+  .my-listing { grid-template-columns: 84px 1fr; gap: 12px; }
   .gallery-main { border-radius: 18px; margin: 0 -14px; border-left: 0; border-right: 0; border-radius: 0; }
   .contact-actions .btn { flex: 1; }
   .kv { grid-template-columns: 1fr; gap: 0; }

@@ -6,5 +6,6 @@ Disallow: /account
 Disallow: /verify
 Disallow: /post
 Disallow: /edit/
+Disallow: /my-listings
 Disallow: /my-ads
 Disallow: /confirm-email

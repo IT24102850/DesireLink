@@ -6,7 +6,7 @@ import { VerifiedBadge } from "./ui.jsx";
 export default function AdCard({ ad }) {
   const { t, lang } = useI18n();
   return (
-    <Link to={`/ad/${ad.id}`} className="ad-card">
+    <Link to={`/p/${ad.id}`} className="pcard">
       <div className="thumb">
         {ad.photo ? (
           <img src={ad.photo} alt="" loading="lazy" decoding="async" />

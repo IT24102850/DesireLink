@@ -73,7 +73,7 @@ export default function PostAd() {
       if (editing) await api.updateAd(id, { ...fields, keepPhotos: JSON.stringify(kept.map((p) => p.id)) }, added);
       else await api.createAd(fields, added);
       setDone(true);
-      setTimeout(() => nav("/my-ads"), 1400);
+      setTimeout(() => nav("/my-listings"), 1400);
     } catch (ex) {
       setErr(ex);
     } finally {

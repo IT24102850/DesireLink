@@ -229,7 +229,7 @@ function Ads({ onChange }) {
         <div key={a.id} className="card review">
           <div className="review-head">
             <div>
-              <Link to={`/ad/${a.id}`} target="_blank"><strong>{a.title}</strong></Link>
+              <Link to={`/p/${a.id}`} target="_blank"><strong>{a.title}</strong></Link>
               <div className="muted small">
                 {t(a.gender)} · {a.age} {t("years")} · {districtName(a.districtId, lang)} · {t("publisher")}: {a.publisherEmail}
                 {a.publisherBanned && <> · <span className="error">{t("banned")}</span></>}
@@ -316,7 +316,7 @@ function Reports({ onChange }) {
             <StatusBadge status={r.ad.status} />
           </div>
           {r.details && <p className="desc">“{r.details}”</p>}
-          <p><Link to={`/ad/${r.ad.id}`} target="_blank">{r.ad.title}</Link></p>
+          <p><Link to={`/p/${r.ad.id}`} target="_blank">{r.ad.title}</Link></p>
           {r.status === "OPEN" && (
             <div className="row wrap">
               {r.ad.status !== "REMOVED" && <button className="btn danger" onClick={() => setRemoving(r.ad.id)}>{t("remove")}</button>}
