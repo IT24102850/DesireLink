@@ -13,7 +13,11 @@ export default defineConfig(({ mode }) => {
         "/media": { target: api, changeOrigin: false },
         "/healthz": { target: api, changeOrigin: false },
       },
-      watch: { ignored: ["**/.devdb/**", "**/data/**", "**/*.crdownload", "**/*.part", "**/*.tmp"] },
+      // Only source files matter. Watching data/scraped folders crashes Vite with
+      // EBUSY on Windows when another process is writing into them.
+      watch: {
+        ignored: ["**/.devdb/**", "**/data/**", "**/extracted/**", "**/backups/**", "**/dist/**", "**/*.crdownload", "**/*.part", "**/*.tmp"],
+      },
     },
     build: {
       target: "es2020",
