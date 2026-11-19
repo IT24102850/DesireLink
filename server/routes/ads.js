@@ -5,7 +5,7 @@ import { prisma } from "../db.js";
 import { fail } from "../lib/errors.js";
 import { hmac } from "../lib/security.js";
 import { upload, saveMediaImage, deleteImage, sendImage } from "../lib/storage.js";
-import { requireRole } from "../middleware/auth.js";
+import { requireRole, requireTerms } from "../middleware/auth.js";
 import { calcAge } from "../../shared/nic.js";
 import { AD_TAGS, GENDERS, LIMITS, REPORT_REASONS, normalizeLkPhone, formatLkPhone } from "../../shared/constants.js";
 import { DISTRICTS } from "../../shared/locations.js";
@@ -189,7 +189,7 @@ async function approvedVerification(user) {
 
 const photoUpload = upload.array("photos", LIMITS.photosPerAd);
 
-r.post("/", requireRole("PUBLISHER"), limiter(60, 20), photoUpload, async (req, res) => {
+r.post("/", requireRole("PUBLISHER"), requireTerms, limiter(60, 20), photoUpload, async (req, res) => {
   const v = await approvedVerification(req.user);
   const data = parseAd(req.body, req.user, v);
   const active = await prisma.ad.count({
@@ -223,7 +223,7 @@ async function ownAd(req) {
   return ad;
 }
 
-r.put("/:id", requireRole("PUBLISHER"), limiter(60, 30), photoUpload, async (req, res) => {
+r.put("/:id", requireRole("PUBLISHER"), requireTerms, limiter(60, 30), photoUpload, async (req, res) => {
   const v = await approvedVerification(req.user);
   const ad = await ownAd(req);
   const data = parseAd(req.body, req.user, v);

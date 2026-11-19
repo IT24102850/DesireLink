@@ -50,6 +50,7 @@ enum SessionKind {
 enum CodePurpose {
   EMAIL_VERIFY
   PASSWORD_RESET
+  INVITE
 }
 
 enum ReportReason {
@@ -78,6 +79,12 @@ model User {
   emailVerifiedAt DateTime?
   isBanned        Boolean   @default(false)
   bannedReason    String?
+
+  // Consent: set at self-registration, or when an admin-invited person activates
+  // their account. Nobody can verify or publish without it.
+  termsAcceptedAt DateTime?
+  invitedById     String?
+  claimedAt       DateTime?
 
   // Brute-force protection (per account, on top of per-IP rate limits)
   failedLogins    Int       @default(0)

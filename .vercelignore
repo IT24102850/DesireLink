@@ -14,3 +14,6 @@ Dockerfile
 docker-compose.yml
 render.yaml
 *.secrets.txt
+
+# Scraped third-party material: never commit, upload or bake into images.
+extracted/

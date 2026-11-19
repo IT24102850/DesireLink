@@ -47,6 +47,6 @@ export async function sendMail(to, lang, kind, vars = {}) {
   } catch (e) {
     // Notifications must never break the request that triggered them.
     console.error("[mail] send failed:", e.message);
-    if (kind === "code" || kind === "reset") throw e;
+    if (kind === "code" || kind === "reset" || kind === "invite") throw e;
   }
 }

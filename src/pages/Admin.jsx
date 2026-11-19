@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import { useI18n } from "../i18n";
 import { api } from "../lib/api.js";
 import { districtName } from "../../shared/locations.js";
-import { ErrorText, ReasonDialog, Spinner, StatusBadge, useDocumentTitle } from "../components/ui.jsx";
+import { Dialog, ErrorText, ImageField, Notice, ReasonDialog, Spinner, StatusBadge, useDocumentTitle } from "../components/ui.jsx";
+import { checkNicEligibility } from "../../shared/nic.js";
+import { normalizeLkPhone } from "../../shared/constants.js";
 
 const TABS = ["stats", "verifications", "ads", "reports", "users", "audit"];
 
@@ -351,6 +353,8 @@ function Users() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [banning, setBanning] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [msg, setMsg] = useState("");
 
   const load = useCallback(() => {
     api.admin.users(query, page).then(setData).catch(setErr);
@@ -367,12 +371,27 @@ function Users() {
     }
   };
 
+  const resend = async (u) => {
+    setErr(null);
+    setMsg("");
+    try {
+      await api.admin.resendInvite(u.id);
+      setMsg(t("inviteSent", { email: u.email }));
+    } catch (e) {
+      setErr(e);
+    }
+  };
+
   return (
     <>
-      <form className="search-row" onSubmit={(e) => { e.preventDefault(); setPage(1); setQuery(q.trim()); }}>
-        <input type="search" placeholder={t("searchUsers")} aria-label={t("searchUsers")} value={q} onChange={(e) => setQ(e.target.value)} />
-        <button className="btn">{t("search")}</button>
-      </form>
+      <div className="users-toolbar">
+        <form className="search-row" onSubmit={(e) => { e.preventDefault(); setPage(1); setQuery(q.trim()); }}>
+          <input type="search" placeholder={t("searchUsers")} aria-label={t("searchUsers")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <button className="btn">{t("search")}</button>
+        </form>
+        <button className="btn glow" onClick={() => { setMsg(""); setAdding(true); }}>＋ {t("addPublisher")}</button>
+      </div>
+      {msg && <p className="ok-text" role="status">{msg}</p>}
       <ErrorText error={err} />
       {!data && <Spinner />}
       {data?.items.length === 0 && <p className="muted">{t("nothingPending")}</p>}
@@ -388,8 +407,10 @@ function Users() {
               {u.banned && u.bannedReason && <div className="error small">{t("reason")}: {u.bannedReason}</div>}
             </div>
             <div className="row">
+              {u.invited && <span className="badge warn">{t("notActivated")}</span>}
               <StatusBadge status={u.status} />
               {u.banned && <span className="badge bad">{t("banned")}</span>}
+              {u.invited && !u.banned && <button className="btn small ghost" onClick={() => resend(u)}>{t("resendInvite")}</button>}
               <button className={`btn small ${u.banned ? "ghost" : "danger"}`} onClick={() => (u.banned ? setBanned(u.id, false) : setBanning(u.id))}>
                 {u.banned ? t("unban") : t("ban")}
               </button>
@@ -398,6 +419,17 @@ function Users() {
         ))}
       </div>
       {data && <Pager page={data.page} total={data.total} pageSize={data.pageSize} onPage={setPage} />}
+      <AddPublisher
+        open={adding}
+        onClose={() => setAdding(false)}
+        onCreated={(email) => {
+          setAdding(false);
+          setMsg(t("publisherCreated", { email }));
+          setPage(1);
+          setQuery("");
+          load();
+        }}
+      />
       <ReasonDialog
         open={Boolean(banning)}
         title={t("ban")}
@@ -410,6 +442,124 @@ function Users() {
         }}
       />
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------------
+// Admin adds a publisher on someone's behalf. The account stays inactive until
+// the person activates it from the emailed link (own password + terms).
+const EMPTY_PUBLISHER = { email: "", phone: "", locale: "si", nic: "", consent: false };
+
+function AddPublisher({ open, onClose, onCreated }) {
+  const { t } = useI18n();
+  const [f, setF] = useState(EMPTY_PUBLISHER);
+  const [files, setFiles] = useState({ front: null, back: null, selfie: null });
+  const [withId, setWithId] = useState(false);
+  const [err, setErr] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setF(EMPTY_PUBLISHER);
+      setFiles({ front: null, back: null, selfie: null });
+      setWithId(false);
+      setErr(null);
+    }
+  }, [open]);
+
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
+  const phoneBad = Boolean(f.phone) && !normalizeLkPhone(f.phone);
+  const preview = withId && f.nic.trim() ? checkNicEligibility(f.nic) : null;
+  const idReady = !withId || Boolean(preview?.valid && files.front && files.back && files.selfie);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      const fields = { email: f.email, phone: f.phone, locale: f.locale, consent: f.consent ? "true" : "false", nic: withId ? f.nic : "" };
+      await api.admin.createPublisher(fields, withId ? files : {});
+      onCreated(f.email.trim().toLowerCase());
+    } catch (ex) {
+      setErr(ex);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} title={t("addPublisher")} onClose={onClose}>
+      <form onSubmit={submit} className="form">
+        <p className="muted small">{t("addPublisherText")}</p>
+        <label>
+          {t("email")}
+          <input type="email" required maxLength={254} value={f.email} onChange={set("email")} />
+        </label>
+        <label>
+          {t("phone")}
+          <input type="tel" inputMode="tel" required placeholder="077 123 4567" aria-invalid={phoneBad || undefined} value={f.phone} onChange={set("phone")} />
+          {phoneBad && <small className="error">{t("err.INVALID_PHONE")}</small>}
+        </label>
+        <label>
+          {t("emailLanguage")}
+          <select value={f.locale} onChange={set("locale")}>
+            <option value="si">සිංහල</option>
+            <option value="ta">தமிழ்</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+
+        <label className="check-label">
+          <input type="checkbox" checked={withId} onChange={(e) => setWithId(e.target.checked)} />
+          <span>{t("addIdNow")}</span>
+        </label>
+        {withId && (
+          <fieldset className="stack">
+            <label>
+              {t("nicNumber")}
+              <input
+                value={f.nic}
+                onChange={(e) => setF({ ...f, nic: e.target.value.toUpperCase() })}
+                placeholder="200012345678 / 851000123V"
+                autoComplete="off"
+                spellCheck={false}
+                maxLength={14}
+                required
+              />
+            </label>
+            {preview && (
+              <div className={"nic-preview " + (preview.valid ? "ok" : "bad")}>
+                {(preview.valid || preview.error === "UNDERAGE") && (
+                  <dl className="kv inline">
+                    <dt>{t("birthDate")}</dt><dd>{preview.birthDate}</dd>
+                    <dt>{t("age")}</dt><dd>{preview.age}</dd>
+                    <dt>{t("gender")}</dt><dd>{t(preview.gender)}</dd>
+                  </dl>
+                )}
+                {!preview.valid && <p className="error">{t("err." + preview.error)}</p>}
+              </div>
+            )}
+            <div className="id-photos">
+              <ImageField label={t("nicFront")} value={files.front} onChange={(x) => setFiles({ ...files, front: x })} required />
+              <ImageField label={t("nicBack")} value={files.back} onChange={(x) => setFiles({ ...files, back: x })} required />
+              <ImageField label={t("selfie")} value={files.selfie} onChange={(x) => setFiles({ ...files, selfie: x })} required />
+            </div>
+            <small className="muted">{t("addIdNote")}</small>
+          </fieldset>
+        )}
+
+        <label className="check-label consent-box">
+          <input type="checkbox" required checked={f.consent} onChange={set("consent")} />
+          <span>{t("consentConfirm")}</span>
+        </label>
+        <Notice>{t("inviteExplain")}</Notice>
+        <ErrorText error={err} />
+        <div className="row end">
+          <button type="button" className="btn ghost" onClick={onClose}>{t("cancel")}</button>
+          <button className="btn glow" disabled={busy || !f.consent || phoneBad || !idReady}>{busy ? t("loading") : t("createAndInvite")}</button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 

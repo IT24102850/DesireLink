@@ -473,6 +473,92 @@ try {
     assert.equal(r.data.publishers, 2);
   });
 
+  console.log("admin adds publishers");
+  const inviteToken = (email) => {
+    const m = [...globalThis.__mailSink].reverse().find((x) => x.to === email && x.kind === "invite");
+    return m && new URL("http://x" + m.vars.path).searchParams.get("token");
+  };
+  const idForm = async (fields, withFiles = true) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    if (withFiles) for (const k of ["front", "back", "selfie"]) fd.append(k, await blob(), k + ".jpg");
+    return fd;
+  };
+  await step("only a verified admin session can add publishers; consent is required", async () => {
+    assert.equal((await visitor.post("/api/admin/users", await idForm({ email: "x@test.lk", phone: "0751110000", consent: "true" }, false))).status, 401);
+    const r = await admin.post("/api/admin/users", await idForm({ email: "x@test.lk", phone: "0751110000" }, false));
+    assert.equal(r.data.error, "CONSENT_REQUIRED");
+  });
+  await step("invite-only publisher: inactive account + activation email in their language", async () => {
+    const r = await admin.post("/api/admin/users", await idForm({ email: "Inv1@Test.lk", phone: "075 111 2222", locale: "ta", consent: "true" }, false));
+    assert.equal(r.status, 201);
+    assert.equal(r.data.verification, "NOT_SUBMITTED");
+    const mail = globalThis.__mailSink.at(-1);
+    assert.equal(mail.kind, "invite");
+    assert.equal(mail.lang, "ta");
+    assert.match(inviteToken("inv1@test.lk"), /^[A-Za-z0-9_-]{40,}$/);
+    const users = await admin.get("/api/admin/users?q=inv1");
+    assert.equal(users.data.items[0].invited, true);
+    const u = await prisma.user.findUnique({ where: { email: "inv1@test.lk" } });
+    assert.equal(u.termsAcceptedAt, null);
+    assert.ok(u.invitedById, "records which admin created it");
+  });
+  await step("an un-activated account cannot verify or publish (even via password reset)", async () => {
+    const c = client();
+    await c.post("/api/auth/password/forgot", { email: "inv1@test.lk" });
+    await c.post("/api/auth/password/reset", { email: "inv1@test.lk", code: lastCode("inv1@test.lk"), password: "sneaky-password-1" });
+    await c.post("/api/auth/login", { email: "inv1@test.lk", password: "sneaky-password-1" });
+    assert.equal((await c.post("/api/verification", await verificationForm("199512312345"))).data.error, "TERMS_REQUIRED");
+  });
+  await step("activation: wrong token / no terms rejected; correct link activates and signs in", async () => {
+    const c = client();
+    const token = inviteToken("inv1@test.lk");
+    let r = await c.post("/api/auth/claim", { email: "inv1@test.lk", token: "x".repeat(43), password: "my-own-password", acceptTerms: true });
+    assert.equal(r.data.error, "INVITE_INVALID");
+    r = await c.post("/api/auth/claim", { email: "inv1@test.lk", token, password: "my-own-password" });
+    assert.equal(r.data.error, "TERMS_REQUIRED");
+    r = await c.post("/api/auth/claim", { email: "inv1@test.lk", token, password: "my-own-password", acceptTerms: true });
+    assert.equal(r.data.user.emailVerified, true);
+    assert.equal(r.data.user.termsAccepted, true);
+    assert.equal((await c.get("/api/auth/me")).data.user.email, "inv1@test.lk");
+    r = await c.post("/api/auth/claim", { email: "inv1@test.lk", token, password: "again-password", acceptTerms: true });
+    assert.equal(r.data.error, "ALREADY_ACTIVATED");
+    const id = (await prisma.user.findUnique({ where: { email: "inv1@test.lk" } })).id;
+    assert.equal((await admin.post(`/api/admin/users/${id}/invite`)).data.error, "ALREADY_ACTIVATED");
+  });
+  await step("resending an invitation invalidates the previous link", async () => {
+    await admin.post("/api/admin/users", await idForm({ email: "inv2@test.lk", phone: "0751113333", consent: "true" }, false));
+    const first = inviteToken("inv2@test.lk");
+    const id = (await prisma.user.findUnique({ where: { email: "inv2@test.lk" } })).id;
+    assert.equal((await admin.post(`/api/admin/users/${id}/invite`)).data.ok, true);
+    const second = inviteToken("inv2@test.lk");
+    assert.notEqual(first, second);
+    const c = client();
+    assert.equal((await c.post("/api/auth/claim", { email: "inv2@test.lk", token: first, password: "pw-inv2-12345", acceptTerms: true })).data.error, "INVITE_INVALID");
+    assert.equal((await c.post("/api/auth/claim", { email: "inv2@test.lk", token: second, password: "pw-inv2-12345", acceptTerms: true })).data.user.termsAccepted, true);
+  });
+  await step("with NIC + photos: same 18+/duplicate checks, lands in the Verifications queue", async () => {
+    let r = await admin.post("/api/admin/users", await idForm({ email: "inv3@test.lk", phone: "0751114444", consent: "true", nic: "201010012345" }));
+    assert.equal(r.data.error, "UNDERAGE");
+    r = await admin.post("/api/admin/users", await idForm({ email: "inv3@test.lk", phone: "0751114444", consent: "true", nic: NIC_A }));
+    assert.equal(r.data.error, "NIC_TAKEN");
+    r = await admin.post("/api/admin/users", await idForm({ email: "inv3@test.lk", phone: "0751114444", consent: "true", nic: "199512312345" }, false));
+    assert.equal(r.data.error, "FILES_REQUIRED");
+    r = await admin.post("/api/admin/users", await idForm({ email: "inv3@test.lk", phone: "0751114444", consent: "true", nic: "199512312345" }));
+    assert.equal(r.status, 201);
+    assert.equal(r.data.verification, "PENDING");
+    const q = await admin.get("/api/admin/verifications");
+    const v = q.data.items.find((x) => x.email === "inv3@test.lk");
+    assert.ok(v && v.images, "in queue with ID photos");
+    assert.equal(v.birthDate, "1995-05-02");
+    assert.equal((await admin.post("/api/admin/users", await idForm({ email: "inv3@test.lk", phone: "0751115555", consent: "true" }, false))).data.error, "EMAIL_TAKEN");
+  });
+  await step("audit log records publisher creation and invitations", async () => {
+    const actions = (await admin.get("/api/admin/audit")).data.items.map((a) => a.action);
+    assert.ok(actions.includes("CREATE_PUBLISHER"));
+    assert.ok(actions.includes("RESEND_INVITE"));
+  });
+
   console.log("account");
   await step("password reset via emailed code revokes sessions", async () => {
     await B.post("/api/auth/password/forgot", { email: "b@test.lk" });

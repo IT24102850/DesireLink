@@ -11,6 +11,7 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import ConfirmEmail from "./pages/ConfirmEmail.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
+import Claim from "./pages/Claim.jsx";
 import Legal from "./pages/Legal.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/claim" element={<Claim />} />
             <Route path="/legal/:doc" element={<Legal />} />
             <Route path="/confirm-email" element={<RequireRole><ConfirmEmail /></RequireRole>} />
             <Route path="/account" element={<RequireRole><Account /></RequireRole>} />

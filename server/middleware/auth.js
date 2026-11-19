@@ -140,6 +140,12 @@ export function requireAdmin(req, _res, next) {
   next();
 }
 
+/** Consent gate: invited accounts cannot verify or publish until they activate. */
+export function requireTerms(req, _res, next) {
+  if (!req.user?.termsAcceptedAt) fail("TERMS_REQUIRED", 403);
+  next();
+}
+
 export function requireEmailVerified(req, _res, next) {
   if (!req.user?.emailVerifiedAt) fail("EMAIL_NOT_VERIFIED", 403);
   next();
@@ -168,4 +174,5 @@ export const publicUser = (u) =>
     role: u.role,
     locale: u.locale,
     emailVerified: Boolean(u.emailVerifiedAt),
+    termsAccepted: Boolean(u.termsAcceptedAt),
   };

@@ -459,3 +459,10 @@ input[type="checkbox"], input[type="radio"] { width: 20px; min-height: 20px; hei
 .recovery-codes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding-left: 22px; margin: 0; }
 .recovery-codes code { font-size: 0.95rem; letter-spacing: 1px; user-select: all; }
 @media (max-width: 640px) { .admin-who { display: none; } .recovery-codes { grid-template-columns: 1fr; } }
+
+/* admin: add publisher */
+.users-toolbar { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; margin-bottom: 14px; }
+.users-toolbar .search-row { flex: 1 1 320px; margin: 0; }
+.dialog:has(.id-photos) { max-width: 640px; }
+.consent-box { padding: 12px; border-radius: var(--radius-sm); border: 1px solid rgba(245, 177, 60, 0.4); background: rgba(245, 177, 60, 0.06); }
+@media (max-width: 640px) { .users-toolbar .btn.glow { width: 100%; } }

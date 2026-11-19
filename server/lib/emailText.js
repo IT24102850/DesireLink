@@ -12,6 +12,11 @@ const T = {
       subject: "Reset your DesireLink password",
       lines: ({ code }) => [`Your password reset code is: ${code}`, "It expires in 15 minutes. If you did not ask for this, you can ignore this email."],
     },
+    invite: {
+      subject: "Activate your DesireLink publisher account",
+      lines: () => ["An administrator created a DesireLink publisher account for this email address at your request.", "To activate it, choose a password and accept the terms. The link is valid for 72 hours.", "If you did not ask for this, ignore this email. The account stays inactive and nothing is published."],
+      cta: "Activate account",
+    },
     verificationApproved: {
       subject: "Your identity is verified",
       lines: () => ["Your ID verification was approved. Your ID photos have been permanently deleted.", "You can now post ads."],
@@ -49,6 +54,11 @@ const T = {
       subject: "ඔබේ DesireLink මුරපදය යළි සකසන්න",
       lines: ({ code }) => [`ඔබේ මුරපදය යළි සැකසීමේ කේතය: ${code}`, "එය මිනිත්තු 15කින් කල් ඉකුත් වේ. ඔබ මෙය ඉල්ලුවේ නැත්නම්, නොසලකා හරින්න."],
     },
+    invite: {
+      subject: "ඔබේ DesireLink පළකරු ගිණුම සක්‍රීය කරන්න",
+      lines: () => ["ඔබේ ඉල්ලීම පරිදි පරිපාලකයෙකු මෙම විද්‍යුත් තැපැල් ලිපිනය සඳහා DesireLink පළකරු ගිණුමක් සාදා ඇත.", "එය සක්‍රීය කිරීමට, මුරපදයක් තෝරා නියමයන් පිළිගන්න. මෙම සබැඳිය පැය 72ක් වලංගුයි.", "ඔබ මෙය ඉල්ලුවේ නැත්නම්, මෙම ලිපිය නොසලකා හරින්න. ගිණුම අක්‍රීයව පවතින අතර කිසිවක් පළ නොවේ."],
+      cta: "ගිණුම සක්‍රීය කරන්න",
+    },
     verificationApproved: {
       subject: "ඔබේ අනන්‍යතාව සත්‍යාපනය විය",
       lines: () => ["ඔබේ හැඳුනුම්පත් සත්‍යාපනය අනුමත විය. ඔබේ හැඳුනුම්පත් ඡායාරූප ස්ථිරවම මකා දමා ඇත.", "දැන් ඔබට දැන්වීම් පළ කළ හැක."],
@@ -85,6 +95,11 @@ const T = {
     reset: {
       subject: "உங்கள் DesireLink கடவுச்சொல்லை மீட்டமைக்கவும்",
       lines: ({ code }) => [`உங்கள் கடவுச்சொல் மீட்டமைப்பு குறியீடு: ${code}`, "இது 15 நிமிடங்களில் காலாவதியாகும். நீங்கள் கோரவில்லை என்றால், புறக்கணிக்கவும்."],
+    },
+    invite: {
+      subject: "உங்கள் DesireLink வெளியீட்டாளர் கணக்கைச் செயல்படுத்துங்கள்",
+      lines: () => ["உங்கள் கோரிக்கையின்படி ஒரு நிர்வாகி இந்த மின்னஞ்சல் முகவரிக்கு DesireLink வெளியீட்டாளர் கணக்கை உருவாக்கியுள்ளார்.", "செயல்படுத்த, கடவுச்சொல்லைத் தேர்ந்தெடுத்து விதிமுறைகளை ஏற்கவும். இந்த இணைப்பு 72 மணி நேரம் செல்லுபடியாகும்.", "நீங்கள் இதைக் கோரவில்லை என்றால், இந்த மின்னஞ்சலைப் புறக்கணிக்கவும். கணக்கு செயலற்றதாகவே இருக்கும், எதுவும் வெளியிடப்படாது."],
+      cta: "கணக்கைச் செயல்படுத்து",
     },
     verificationApproved: {
       subject: "உங்கள் அடையாளம் சரிபார்க்கப்பட்டது",

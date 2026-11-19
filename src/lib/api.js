@@ -91,6 +91,7 @@ export const api = {
   // auth
   me: () => get("/api/auth/me"),
   register: (b) => post("/api/auth/register", b),
+  claim: (b) => post("/api/auth/claim", b),
   login: (b) => post("/api/auth/login", b),
   logout: () => post("/api/auth/logout"),
   resendEmailCode: () => post("/api/auth/email/resend"),
@@ -142,6 +143,11 @@ export const api = {
     resolveReport: (id, action) => post(`/api/admin/reports/${id}`, { action }),
     users: (q, page) => get("/api/admin/users" + qs({ q, page })),
     setBanned: (id, banned, reason) => post(`/api/admin/users/${id}/ban`, { banned, reason }),
+    createPublisher: async (fields, { front, back, selfie } = {}) => {
+      const [f, b, s] = await shrinkAll([front, back, selfie]);
+      return request("POST", "/api/admin/users", form(fields, { front: f, back: b, selfie: s }));
+    },
+    resendInvite: (id) => post(`/api/admin/users/${id}/invite`),
     audit: (page) => get("/api/admin/audit" + qs({ page })),
   },
 };

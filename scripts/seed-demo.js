@@ -32,6 +32,8 @@ for (const p of people) {
       phone: p.phone,
       passwordHash: hash,
       emailVerifiedAt: now,
+      termsAcceptedAt: now,
+      claimedAt: now,
       verification: {
         create: {
           status: "APPROVED",

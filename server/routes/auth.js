@@ -10,6 +10,7 @@ import { createSession, destroySession, publicUser, requireAuth, touchSession } 
 import { deleteImage } from "../lib/storage.js";
 import { LIMITS, normalizeLkPhone } from "../../shared/constants.js";
 import { assertNotLocked, recordFailure, recordSuccess, MAX_FAILS } from "../lib/lockout.js";
+import { consumeInvite } from "../lib/invite.js";
 
 const r = Router();
 
@@ -71,7 +72,8 @@ r.post("/register", limiter(60, 10), async (req, res) => {
   if (existing?.email === em) fail("EMAIL_TAKEN", 409);
   if (existing) fail("PHONE_TAKEN", 409);
 
-  const user = await prisma.user.create({ data: { email: em, phone, passwordHash: await hashPassword(pw), locale: loc } });
+  const now = new Date();
+  const user = await prisma.user.create({ data: { email: em, phone, passwordHash: await hashPassword(pw), locale: loc, termsAcceptedAt: now, claimedAt: now } });
   await createSession(res, user, req);
   await issueCode(user, "EMAIL_VERIFY").catch((e) => console.error("[register] code send failed", e.message));
   res.status(201).json({ user: publicUser(user) });
@@ -103,6 +105,32 @@ r.post("/logout", async (req, res) => {
 r.get("/me", async (req, res) => {
   await touchSession(req, res);
   res.json({ user: publicUser(req.user) || null });
+});
+
+// ---- activate an admin-created account (invitation link) ----------------------------
+r.post("/claim", limiter(15, 20), async (req, res) => {
+  const body = z
+    .object({ email, token: z.string().min(20).max(100), password, acceptTerms: z.literal(true) })
+    .safeParse(req.body);
+  if (!body.success) {
+    const f = body.error.issues.map((i) => i.path[0]);
+    if (f.includes("password")) fail("WEAK_PASSWORD");
+    if (f.includes("acceptTerms")) fail("TERMS_REQUIRED");
+    fail("INVITE_INVALID");
+  }
+  const user = await prisma.user.findUnique({ where: { email: body.data.email } });
+  if (!user || user.role !== "PUBLISHER") fail("INVITE_INVALID");
+  if (user.isBanned) fail("BANNED", 403);
+  if (user.claimedAt) fail("ALREADY_ACTIVATED", 409);
+  await consumeInvite(user, body.data.token);
+  const now = new Date();
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await hashPassword(body.data.password), emailVerifiedAt: user.emailVerifiedAt ?? now, termsAcceptedAt: now, claimedAt: now, failedLogins: 0, lockedUntil: null },
+  });
+  await prisma.session.deleteMany({ where: { userId: user.id } });
+  await createSession(res, updated, req);
+  res.json({ user: publicUser(updated) });
 });
 
 // ---- email confirmation ----------------------------------------------------

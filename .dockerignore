@@ -10,3 +10,6 @@ backups
 *.log
 *.png
 !public/*.png
+
+# Scraped third-party material: never commit, upload or bake into images.
+extracted/

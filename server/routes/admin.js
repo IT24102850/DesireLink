@@ -2,12 +2,13 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { fail } from "../lib/errors.js";
-import { decryptNic } from "../lib/security.js";
-import { deleteImage, sendImage } from "../lib/storage.js";
+import { decryptNic, encryptNic, nicHash, hashPassword, randomToken } from "../lib/security.js";
+import { deleteImage, sendImage, upload, savePrivateImage } from "../lib/storage.js";
+import { sendInvite } from "../lib/invite.js";
+import { checkNicEligibility, maskNic, calcAge } from "../../shared/nic.js";
 import { sendMail } from "../lib/mailer.js";
 import { requireAdmin } from "../middleware/auth.js";
-import { calcAge } from "../../shared/nic.js";
-import { formatLkPhone, LIMITS } from "../../shared/constants.js";
+import { formatLkPhone, normalizeLkPhone, LIMITS } from "../../shared/constants.js";
 import { adView, displayStatus } from "./ads.js";
 
 const r = Router();
@@ -234,6 +235,7 @@ r.get("/users", async (req, res) => {
       banned: u.isBanned,
       bannedReason: u.bannedReason,
       status: u.verification?.status || "NOT_SUBMITTED",
+      invited: !u.claimedAt,
       ads: u._count.ads,
       createdAt: u.createdAt,
     })),
@@ -249,6 +251,107 @@ r.post("/users/:id/ban", async (req, res) => {
     ...(body.banned ? [prisma.session.deleteMany({ where: { userId: u.id } })] : []),
   ]);
   await audit(req, body.banned ? "BAN_USER" : "UNBAN_USER", "user", u.id, body.reason ? { reason: body.reason, email: u.email } : { email: u.email });
+  res.json({ ok: true });
+});
+
+// ---- add a publisher on someone's behalf ------------------------------------------------
+// The account is INACTIVE until the person opens the emailed link, sets their own
+// password and accepts the terms. Optional NIC + photos go to the normal
+// Verifications queue with exactly the same checks as self-verification.
+const idFiles = upload.fields([
+  { name: "front", maxCount: 1 },
+  { name: "back", maxCount: 1 },
+  { name: "selfie", maxCount: 1 },
+]);
+
+r.post(["/users", "/publishers"], idFiles, async (req, res) => {
+  const body = z
+    .object({
+      email: z.string().trim().toLowerCase().email().max(254),
+      phone: z.string().max(20),
+      locale: z.enum(["en", "si", "ta"]).default("en"),
+      nic: z.string().max(20).optional().default(""),
+      consent: z.literal("true"),
+    })
+    .safeParse(req.body);
+  if (!body.success) {
+    const f = body.error.issues.map((i) => i.path[0]);
+    if (f.includes("consent")) fail("CONSENT_REQUIRED");
+    if (f.includes("email")) fail("INVALID_EMAIL");
+    fail("FIELDS_REQUIRED");
+  }
+  const { email, locale } = body.data;
+  const phone = normalizeLkPhone(body.data.phone);
+  if (!phone) fail("INVALID_PHONE");
+
+  const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { phone }] } });
+  if (existing?.isBanned) fail("BANNED", 403);
+  if (existing?.email === email) fail("EMAIL_TAKEN", 409);
+  if (existing) fail("PHONE_TAKEN", 409);
+
+  // Optional identity documents: same rules as self-verification.
+  let check = null;
+  const files = req.files || {};
+  if (body.data.nic.trim()) {
+    check = checkNicEligibility(body.data.nic);
+    if (!check.valid) fail(check.error);
+    if (!files.front?.[0] || !files.back?.[0] || !files.selfie?.[0]) fail("FILES_REQUIRED");
+  }
+
+  const saved = [];
+  try {
+    if (check) for (const k of ["front", "back", "selfie"]) saved.push(await savePrivateImage(files[k][0].buffer));
+    const user = await prisma.$transaction(async (tx) => {
+      const hash = check ? nicHash(check.nic) : null;
+      if (hash) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${hash}))`;
+        const taken = await tx.verification.findFirst({ where: { nicHash: hash, status: { in: ["PENDING", "APPROVED"] } }, select: { id: true } });
+        if (taken) fail("NIC_TAKEN", 409);
+      }
+      return tx.user.create({
+        data: {
+          email,
+          phone,
+          locale,
+          role: "PUBLISHER",
+          // Unusable until the person sets their own password via the invitation.
+          passwordHash: await hashPassword(randomToken(32)),
+          invitedById: req.adminUser.id,
+          ...(check && {
+            verification: {
+              create: {
+                status: "PENDING",
+                nicEncrypted: encryptNic(check.nic),
+                nicHash: hash,
+                nicMasked: maskNic(check.nic),
+                nicFormat: check.format,
+                birthDate: new Date(check.birthDate + "T00:00:00Z"),
+                nicGender: check.gender === "female" ? "FEMALE" : "MALE",
+                nicFrontKey: saved[0].key,
+                nicBackKey: saved[1].key,
+                selfieKey: saved[2].key,
+              },
+            },
+          }),
+        },
+      });
+    });
+    await audit(req, "CREATE_PUBLISHER", "user", user.id, { email, withIdDocuments: Boolean(check) });
+    await sendInvite(user);
+    res.status(201).json({ id: user.id, email: user.email, verification: check ? "PENDING" : "NOT_SUBMITTED" });
+  } catch (e) {
+    await Promise.all(saved.map((x) => deleteImage("private", x.key)));
+    throw e;
+  }
+});
+
+r.post("/users/:id/invite", async (req, res) => {
+  const u = await prisma.user.findUnique({ where: { id: String(req.params.id) } });
+  if (!u || u.role !== "PUBLISHER") fail("NOT_FOUND", 404);
+  if (u.claimedAt) fail("ALREADY_ACTIVATED", 409);
+  if (u.isBanned) fail("BANNED", 403);
+  await sendInvite(u);
+  await audit(req, "RESEND_INVITE", "user", u.id, { email: u.email });
   res.json({ ok: true });
 });
 

@@ -4,7 +4,7 @@ import { prisma } from "../db.js";
 import { fail } from "../lib/errors.js";
 import { encryptNic, nicHash } from "../lib/security.js";
 import { upload, savePrivateImage, deleteImage } from "../lib/storage.js";
-import { requireAuth, requireEmailVerified, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireEmailVerified, requireRole, requireTerms } from "../middleware/auth.js";
 import { checkNicEligibility, calcAge, maskNic } from "../../shared/nic.js";
 
 const r = Router();
@@ -36,7 +36,7 @@ const fields = upload.fields([
   { name: "selfie", maxCount: 1 },
 ]);
 
-r.post("/", requireAuth, requireEmailVerified, submitLimiter, fields, async (req, res) => {
+r.post("/", requireAuth, requireTerms, requireEmailVerified, submitLimiter, fields, async (req, res) => {
   const existing = await prisma.verification.findUnique({ where: { userId: req.user.id } });
   if (existing && existing.status !== "REJECTED") fail("ALREADY_SUBMITTED", 409);
 
