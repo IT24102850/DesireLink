@@ -1,0 +1,15 @@
+# Vercel only needs the frontend sources. Never upload secrets or local data.
+.env
+.env.*
+!.env.example
+.devdb
+.devdb-ready
+data
+backups
+dist
+node_modules
+18f6224c-2c89-4211-ad1b-ee5b6088852f.png
+deploy
+Dockerfile
+docker-compose.yml
+render.yaml

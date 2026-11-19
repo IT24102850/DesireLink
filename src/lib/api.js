@@ -47,7 +47,7 @@ const qs = (o) => {
  * Falls back to the original file if the browser can't decode it (e.g. HEIC).
  */
 export async function shrinkImage(file, max = 1600, quality = 0.85) {
-  if (!file || !/^image//.test(file.type)) return file;
+  if (!file || !file.type?.startsWith("image/")) return file;
   try {
     const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
     const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
@@ -58,7 +58,7 @@ export async function shrinkImage(file, max = 1600, quality = 0.85) {
     canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
     bmp.close?.();
     const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", quality));
-    return blob ? new File([blob], (file.name || "photo").replace(/.w+$/, "") + ".jpg", { type: "image/jpeg" }) : file;
+    return blob ? new File([blob], (file.name || "photo").replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file;
   } catch {
     return file;
   }

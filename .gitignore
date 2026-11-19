@@ -9,3 +9,7 @@ data
 !.env.production.example
 *.log
 .DS_Store
+.vercel
+
+.vercel
+.env*

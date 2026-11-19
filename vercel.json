@@ -1,9 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "npm install --ignore-scripts --no-audit --no-fund",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
   "routes": [
     {
       "src": "/(api|media)/(.*)",
@@ -12,15 +8,21 @@
         {
           "type": "request.headers",
           "op": "set",
-          "target": { "key": "x-origin-secret" },
+          "target": {
+            "key": "x-origin-secret"
+          },
           "args": "$ORIGIN_SECRET",
-          "env": ["ORIGIN_SECRET"]
+          "env": [
+            "ORIGIN_SECRET"
+          ]
         }
       ]
     },
     {
       "src": "/assets/(.*)",
-      "headers": { "cache-control": "public, max-age=31536000, immutable" },
+      "headers": {
+        "cache-control": "public, max-age=31536000, immutable"
+      },
       "continue": true
     },
     {
@@ -35,7 +37,15 @@
       },
       "continue": true
     },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html", "headers": { "cache-control": "no-cache" } }
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html",
+      "headers": {
+        "cache-control": "no-cache"
+      }
+    }
   ]
 }
