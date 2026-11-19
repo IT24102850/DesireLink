@@ -20,7 +20,7 @@ COPY prisma ./prisma
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY server ./server
 COPY shared ./shared
-COPY scripts/create-admin.js scripts/docker-start.sh ./scripts/
+COPY scripts/create-admin.js scripts/docker-start.sh scripts/seed-bulk.js scripts/check-seed.js ./scripts/
 COPY --from=build /app/dist ./dist
 RUN mkdir -p /data && chown -R node:node /data
 # Starts as root only to chown the mounted disk, then drops to "node" (see docker-start.sh).

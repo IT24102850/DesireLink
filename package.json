@@ -18,6 +18,8 @@
     "prisma": "node scripts/prisma.js",
     "create-admin": "node scripts/create-admin.js",
     "seed:demo": "node scripts/seed-demo.js",
+    "seed:bulk": "node scripts/seed-bulk.js",
+    "check:seed": "node scripts/check-seed.js",
     "gen-secrets": "node scripts/gen-secrets.js",
     "build:logo": "node scripts/build-logo.js",
     "test": "node shared/nic.test.mjs && node --env-file-if-exists=.env.test scripts/api-test.js",
