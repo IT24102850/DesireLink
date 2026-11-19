@@ -13,3 +13,4 @@ deploy
 Dockerfile
 docker-compose.yml
 render.yaml
+*.secrets.txt

@@ -13,3 +13,4 @@ data
 
 .vercel
 .env*
+*.secrets.txt
