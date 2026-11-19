@@ -25,6 +25,10 @@ async function request(method, url, body) {
   }
   const data = res.headers.get("content-type")?.includes("json") ? await res.json().catch(() => null) : null;
   if (!res.ok) {
+    // Admin session ended (idle timeout, 8 h limit, signed in elsewhere): back to the admin login.
+    if (res.status === 401 && url.startsWith("/api/admin/") && typeof window !== "undefined" && !location.pathname.startsWith("/admin/login")) {
+      location.assign("/admin/login?expired=1");
+    }
     if (data?.error) throw new ApiError(data.error, res.status, data);
     // No JSON body: the API itself didn't answer (backend down, deploying or
     // not reachable through the proxy), as opposed to an app-level error.
@@ -114,6 +118,17 @@ export const api = {
   updateAd: async (id, fields, photos) => request("PUT", `/api/ads/${encodeURIComponent(id)}`, form(fields, { photos: await shrinkAll(photos) })),
   deleteAd: (id) => request("DELETE", `/api/ads/${encodeURIComponent(id)}`),
   renewAd: (id) => post(`/api/ads/${encodeURIComponent(id)}/renew`),
+
+  // admin portal sign-in (password -> 2FA)
+  adminAuth: {
+    me: () => get("/api/admin-auth/me"),
+    login: (email, password) => post("/api/admin-auth/login", { email, password }),
+    setup: () => post("/api/admin-auth/mfa/setup"),
+    enable: (code) => post("/api/admin-auth/mfa/enable", { code }),
+    verify: (body) => post("/api/admin-auth/mfa/verify", body),
+    logout: () => post("/api/admin-auth/logout"),
+    regenerateRecovery: (code) => post("/api/admin-auth/recovery-codes", { code }),
+  },
 
   // admin
   admin: {

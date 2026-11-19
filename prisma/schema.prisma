@@ -42,6 +42,11 @@ enum AdStatus {
   REMOVED
 }
 
+enum SessionKind {
+  USER
+  ADMIN
+}
+
 enum CodePurpose {
   EMAIL_VERIFY
   PASSWORD_RESET
@@ -73,6 +78,15 @@ model User {
   emailVerifiedAt DateTime?
   isBanned        Boolean   @default(false)
   bannedReason    String?
+
+  // Brute-force protection (per account, on top of per-IP rate limits)
+  failedLogins    Int       @default(0)
+  lockedUntil     DateTime?
+
+  // Admin two-factor (TOTP). Secrets are AES-256-GCM encrypted.
+  totpSecret        String?
+  totpPendingSecret String?
+  totpLastStep      Int?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -81,6 +95,18 @@ model User {
   verification Verification?
   ads          Ad[]
   auditLogs    AuditLog[]    @relation("AdminActions")
+  recoveryCodes RecoveryCode[]
+}
+
+// One-time admin recovery codes (only a keyed hash is stored).
+model RecoveryCode {
+  id       String    @id @default(cuid())
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash String    @unique
+  usedAt   DateTime?
+
+  @@index([userId])
 }
 
 // Opaque session tokens. Only the SHA-256 of the token is stored, so a DB leak
@@ -93,6 +119,8 @@ model Session {
   lastSeenAt DateTime @default(now())
   expiresAt  DateTime
   userAgent  String?
+  kind        SessionKind @default(USER)
+  mfaVerified Boolean     @default(false)
 
   @@index([userId])
   @@index([expiresAt])

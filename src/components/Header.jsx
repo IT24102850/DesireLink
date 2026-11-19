@@ -36,7 +36,6 @@ export default function Header() {
           <NavLink to="/verify">{t("verification")}</NavLink>
         </>
       )}
-      {user?.role === "ADMIN" && <NavLink to="/admin">{t("admin")}</NavLink>}
       {user && <NavLink to="/account">{t("account")}</NavLink>}
     </>
   );

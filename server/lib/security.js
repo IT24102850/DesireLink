@@ -48,3 +48,72 @@ export function decryptNic(blob) {
 }
 
 export const nicHash = (normalizedNic) => hmac("nic:" + normalizedNic);
+
+// Generic secret encryption (same AES-256-GCM scheme as NICs).
+export const encryptSecret = encryptNic;
+export const decryptSecret = decryptNic;
+
+// ---- TOTP (RFC 6238: SHA-1, 6 digits, 30 s) for admin two-factor -------------------
+const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+export function base32Encode(buf) {
+  let bits = 0, value = 0, out = "";
+  for (const byte of buf) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      out += B32[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) out += B32[(value << (5 - bits)) & 31];
+  return out;
+}
+
+export function base32Decode(str) {
+  const clean = String(str).toUpperCase().replace(/[^A-Z2-7]/g, "");
+  let bits = 0, value = 0;
+  const out = [];
+  for (const ch of clean) {
+    value = (value << 5) | B32.indexOf(ch);
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 255);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(out);
+}
+
+export const newTotpSecret = () => base32Encode(crypto.randomBytes(20));
+
+export function hotp(secretB32, counter) {
+  const msg = Buffer.alloc(8);
+  msg.writeBigUInt64BE(BigInt(counter));
+  const h = crypto.createHmac("sha1", base32Decode(secretB32)).update(msg).digest();
+  const off = h[h.length - 1] & 15;
+  const bin = ((h[off] & 0x7f) << 24) | (h[off + 1] << 16) | (h[off + 2] << 8) | h[off + 3];
+  return String(bin % 1_000_000).padStart(6, "0");
+}
+
+/** Returns the matched time step, or null. Accepts ±1 step of clock drift; rejects replays (step <= lastStep). */
+export function verifyTotp(secretB32, code, lastStep = null, now = Date.now()) {
+  const c = String(code ?? "").replace(/\s/g, "");
+  if (!/^\d{6}$/.test(c)) return null;
+  const step = Math.floor(now / 30_000);
+  for (const s of [step - 1, step, step + 1]) {
+    if (lastStep != null && s <= lastStep) continue;
+    if (safeEqual(hotp(secretB32, s), c)) return s;
+  }
+  return null;
+}
+
+export const totpUri = (secretB32, account, issuer = "DesireLink Admin") =>
+  `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(account)}?secret=${secretB32}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
+
+/** 10 recovery codes like "7KQ2-M9XA-P4TD". Returns { plain, hashes }. */
+export function newRecoveryCodes(n = 10) {
+  const plain = Array.from({ length: n }, () => base32Encode(crypto.randomBytes(8)).slice(0, 12).match(/.{4}/g).join("-"));
+  return { plain, hashes: plain.map(recoveryHash) };
+}
+export const recoveryHash = (code) => hmac("recovery:" + String(code).toUpperCase().replace(/[^A-Z2-7]/g, ""));

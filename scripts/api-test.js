@@ -73,7 +73,8 @@ try {
   const { createApp } = await import("../server/app.js");
   const { prisma } = await import("../server/db.js");
   const { ensureStorage } = await import("../server/lib/storage.js");
-  const { hashPassword } = await import("../server/lib/security.js");
+  const { hashPassword, hotp } = await import("../server/lib/security.js");
+  const step30 = () => Math.floor(Date.now() / 30_000);
   await ensureStorage();
   server = createApp().listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -230,15 +231,98 @@ try {
 
   console.log("admin");
   await prisma.user.create({ data: { email: "admin@test.lk", phone: "+94700000000", role: "ADMIN", emailVerifiedAt: new Date(), passwordHash: await hashPassword("admin-password-1") } });
+  let adminSecret;
+  let adminRecovery;
+  let enrollCode;
+  console.log("admin portal security");
+  await step("public login refuses admin accounts", async () => {
+    const r = await client().post("/api/auth/login", { email: "admin@test.lk", password: "admin-password-1" });
+    assert.equal(r.data.error, "USE_ADMIN_LOGIN");
+  });
+  await step("password alone gives no admin access (2FA pending)", async () => {
+    let r = await admin.post("/api/admin-auth/login", { email: "admin@test.lk", password: "wrong-password" });
+    assert.equal(r.data.error, "BAD_LOGIN");
+    r = await admin.post("/api/admin-auth/login", { email: "admin@test.lk", password: "admin-password-1" });
+    assert.equal(r.data.stage, "ENROLL");
+    assert.equal((await admin.get("/api/admin/stats")).data.error, "ADMIN_AUTH_REQUIRED");
+    assert.equal((await admin.get("/api/admin-auth/me")).data.stage, "ENROLL");
+  });
+  await step("2FA enrolment: wrong code rejected, right code gives 10 recovery codes", async () => {
+    const setup = await admin.post("/api/admin-auth/mfa/setup");
+    assert.ok(setup.data.uri.startsWith("otpauth://totp/"), "otpauth URI");
+    adminSecret = setup.data.secret;
+    const u = await prisma.user.findUnique({ where: { email: "admin@test.lk" } });
+    assert.ok(u.totpPendingSecret && !u.totpPendingSecret.includes(adminSecret), "secret stored encrypted");
+    let r = await admin.post("/api/admin-auth/mfa/enable", { code: hotp(adminSecret, step30() + 5) });
+    assert.equal(r.data.error, "CODE_INVALID");
+    enrollCode = hotp(adminSecret, step30());
+    r = await admin.post("/api/admin-auth/mfa/enable", { code: enrollCode });
+    assert.equal(r.data.recoveryCodes.length, 10);
+    adminRecovery = r.data.recoveryCodes;
+    assert.equal((await admin.get("/api/admin/stats")).status, 200);
+    assert.match(r.headers.get("set-cookie") || "x", /./);
+  });
+  await step("admin cookie is SameSite=Strict + HttpOnly", async () => {
+    const r = await client().post("/api/admin-auth/login", { email: "admin@test.lk", password: "admin-password-1" });
+    const c = (r.headers.getSetCookie?.() || []).join(";");
+    assert.match(c, /SameSite=Strict/i);
+    assert.match(c, /HttpOnly/i);
+  });
+  await step("TOTP replay rejected; next code accepted; new login signs out other admin sessions", async () => {
+    const other = client();
+    await other.post("/api/admin-auth/login", { email: "admin@test.lk", password: "admin-password-1" });
+    let r = await other.post("/api/admin-auth/mfa/verify", { code: enrollCode });
+    assert.equal(r.data.error, "CODE_INVALID", "replayed code");
+    r = await other.post("/api/admin-auth/mfa/verify", { code: hotp(adminSecret, step30() + 1) });
+    assert.equal(r.data.ok, true);
+    assert.equal((await other.get("/api/admin/stats")).status, 200);
+    assert.equal((await admin.get("/api/admin/stats")).status, 401, "previous admin session revoked");
+    Object.assign(admin, other);
+  });
+  await step("recovery code works exactly once", async () => {
+    const c1 = client();
+    await c1.post("/api/admin-auth/login", { email: "admin@test.lk", password: "admin-password-1" });
+    let r = await c1.post("/api/admin-auth/mfa/verify", { recoveryCode: adminRecovery[0].toLowerCase() });
+    assert.equal(r.data.recoveryCodesLeft, 9);
+    const c2 = client();
+    await c2.post("/api/admin-auth/login", { email: "admin@test.lk", password: "admin-password-1" });
+    r = await c2.post("/api/admin-auth/mfa/verify", { recoveryCode: adminRecovery[0] });
+    assert.equal(r.data.error, "CODE_INVALID");
+    Object.assign(admin, c1);
+  });
+  await step("idle admin session expires after 30 minutes", async () => {
+    await prisma.session.updateMany({ where: { kind: "ADMIN", mfaVerified: true }, data: { lastSeenAt: new Date(Date.now() - 31 * 60_000) } });
+    assert.equal((await admin.get("/api/admin/stats")).status, 401);
+    await prisma.user.update({ where: { email: "admin@test.lk" }, data: { failedLogins: 0, lockedUntil: null } });
+  });
+  await step("5 wrong attempts lock the admin account (even with the right password after)", async () => {
+    const c = client();
+    // Distributed attempts (different IPs) bypass per-IP limits; the per-account lock must still trigger.
+    for (let i = 0; i < 5; i++) await c.post("/api/admin-auth/login", { email: "admin@test.lk", password: "nope-" + i }, { "x-real-ip": "198.51.100." + (10 + i) });
+    const r = await c.post("/api/admin-auth/login", { email: "admin@test.lk", password: "admin-password-1" }, { "x-real-ip": "198.51.100.99" });
+    assert.equal(r.data.error, "ACCOUNT_LOCKED");
+    const audit = await prisma.auditLog.findMany({ where: { action: { in: ["ADMIN_LOGIN_FAILED", "ADMIN_LOCKED"] } } });
+    assert.ok(audit.some((a) => a.action === "ADMIN_LOCKED"));
+    await prisma.user.update({ where: { email: "admin@test.lk" }, data: { failedLogins: 0, lockedUntil: null } });
+  });
+  // Fresh verified admin session for the rest of the suite (clear the replay marker first).
+  {
+    await prisma.user.update({ where: { email: "admin@test.lk" }, data: { totpLastStep: null } });
+    const c = client();
+    await c.post("/api/admin-auth/login", { email: "admin@test.lk", password: "admin-password-1" }, { "x-real-ip": "198.51.100.200" });
+    const v = await c.post("/api/admin-auth/mfa/verify", { code: hotp(adminSecret, step30()) }, { "x-real-ip": "198.51.100.200" });
+    assert.equal(v.data.ok, true, "fresh admin session");
+    Object.assign(admin, c);
+  }
+
   await step("role protection", async () => {
     assert.equal((await visitor.get("/api/admin/stats")).status, 401);
-    assert.equal((await A.get("/api/admin/stats")).status, 403);
-    assert.equal((await A.get(`/api/admin/verifications/${verificationId}/image/front`)).status, 403);
+    assert.equal((await A.get("/api/admin/stats")).status, 401, "publisher session never reaches admin APIs");
+    assert.equal((await A.get(`/api/admin/verifications/${verificationId}/image/front`)).status, 401);
     assert.equal((await visitor.get("/api/ads/mine")).status, 401);
   });
   let idKeys;
   await step("admin sees queue, ID images, reveals NIC (audited)", async () => {
-    await admin.post("/api/auth/login", { email: "admin@test.lk", password: "admin-password-1" });
     const r = await admin.get("/api/admin/verifications");
     assert.equal(r.data.items.length, 1);
     const img = await admin.get(r.data.items[0].images.selfie);
@@ -425,7 +509,8 @@ try {
   });
   await step("cacheable responses never carry Set-Cookie", async () => {
     const c = client();
-    await c.post("/api/auth/login", { email: "admin@test.lk", password: "admin-password-1" });
+    await prisma.user.create({ data: { email: "cache@test.lk", phone: "+94709999999", emailVerifiedAt: new Date(), passwordHash: await hashPassword("cache-password-1") } });
+    await c.post("/api/auth/login", { email: "cache@test.lk", password: "cache-password-1" });
     await prisma.session.updateMany({ data: { lastSeenAt: new Date(Date.now() - 2 * 3_600_000) } });
     const list = await c.get("/api/ads");
     assert.match(list.headers.get("cache-control"), /public/);

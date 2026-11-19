@@ -26,7 +26,7 @@ export default function Login() {
     try {
       const { user } = await api.login(f);
       setUser(user);
-      const home = user.role === "ADMIN" ? "/admin" : !user.emailVerified ? "/confirm-email" : "/my-ads";
+      const home = !user.emailVerified ? "/confirm-email" : "/my-ads";
       nav(safeNext(params.get("next"), home), { replace: true });
     } catch (ex) {
       setErr(ex);
@@ -47,6 +47,7 @@ export default function Login() {
         <input type="password" autoComplete="current-password" required value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
       </label>
       <ErrorText error={err} />
+      {err?.code === "USE_ADMIN_LOGIN" && <Link className="btn ghost block" to="/admin/login">🔒 {t("adminPortal")}</Link>}
       <button className="btn glow block" disabled={busy}>{t("login")}</button>
       <p className="form-links">
         <Link to="/forgot-password">{t("forgotPassword")}</Link>

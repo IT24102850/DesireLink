@@ -9,6 +9,7 @@ import { hashPassword, verifyPassword, dummyVerify, randomCode, hmac, safeEqual 
 import { createSession, destroySession, publicUser, requireAuth, touchSession } from "../middleware/auth.js";
 import { deleteImage } from "../lib/storage.js";
 import { LIMITS, normalizeLkPhone } from "../../shared/constants.js";
+import { assertNotLocked, recordFailure, recordSuccess, MAX_FAILS } from "../lib/lockout.js";
 
 const r = Router();
 
@@ -80,9 +81,16 @@ r.post("/login", limiter(15, 20), async (req, res) => {
   const body = z.object({ email, password: z.string().max(LIMITS.passwordMax), captcha: z.string().optional() }).safeParse(req.body);
   if (!body.success) fail("BAD_LOGIN", 401);
   const user = await prisma.user.findUnique({ where: { email: body.data.email } });
+  assertNotLocked(user);
   const ok = user ? await verifyPassword(user.passwordHash, body.data.password) : await dummyVerify(body.data.password);
-  if (!ok) fail("BAD_LOGIN", 401);
+  if (!ok) {
+    if (user) await recordFailure(user, MAX_FAILS[user.role] ?? MAX_FAILS.USER);
+    fail("BAD_LOGIN", 401);
+  }
   if (user.isBanned) fail("BANNED", 403);
+  // Admins can only sign in through the admin portal (password + 2FA).
+  if (user.role === "ADMIN") fail("USE_ADMIN_LOGIN", 403);
+  await recordSuccess(user);
   await createSession(res, user, req);
   res.json({ user: publicUser(user) });
 });

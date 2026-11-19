@@ -13,6 +13,7 @@ import authRoutes from "./routes/auth.js";
 import verificationRoutes from "./routes/verification.js";
 import adRoutes, { media } from "./routes/ads.js";
 import adminRoutes from "./routes/admin.js";
+import adminAuthRoutes from "./routes/adminAuth.js";
 
 export function createApp() {
   const app = express();
@@ -85,6 +86,7 @@ export function createApp() {
   api.use("/auth", authRoutes);
   api.use("/verification", verificationRoutes);
   api.use("/ads", adRoutes);
+  api.use("/admin-auth", adminAuthRoutes);
   api.use("/admin", adminRoutes);
   api.use((_req, res) => res.status(404).json({ error: "NOT_FOUND" }));
   app.use("/api", api);

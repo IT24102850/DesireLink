@@ -5,13 +5,13 @@ import { fail } from "../lib/errors.js";
 import { decryptNic } from "../lib/security.js";
 import { deleteImage, sendImage } from "../lib/storage.js";
 import { sendMail } from "../lib/mailer.js";
-import { requireRole } from "../middleware/auth.js";
+import { requireAdmin } from "../middleware/auth.js";
 import { calcAge } from "../../shared/nic.js";
 import { formatLkPhone, LIMITS } from "../../shared/constants.js";
 import { adView, displayStatus } from "./ads.js";
 
 const r = Router();
-r.use(requireRole("ADMIN"));
+r.use(requireAdmin);
 
 const DAY = 86_400_000;
 const PAGE = 30;
@@ -19,7 +19,7 @@ const reason = z.string().trim().max(500).optional().default("");
 const page = (q) => Math.max(1, Math.min(1000, Number(q.page) || 1));
 
 async function audit(req, action, targetType, targetId, details) {
-  await prisma.auditLog.create({ data: { adminId: req.user.id, action, targetType, targetId, details: details ?? undefined } });
+  await prisma.auditLog.create({ data: { adminId: req.adminUser.id, action, targetType, targetId, details: details ?? undefined } });
 }
 
 // ---- stats ---------------------------------------------------------------------
@@ -98,7 +98,7 @@ r.post("/verifications/:id/review", async (req, res) => {
     data: {
       status: body.approve ? "APPROVED" : "REJECTED",
       rejectionReason: body.approve ? null : body.reason,
-      reviewedById: req.user.id,
+      reviewedById: req.adminUser.id,
       reviewedAt: new Date(),
       // Retention: ID images are destroyed as soon as a decision is made.
       nicFrontKey: null,
@@ -157,13 +157,13 @@ r.post("/ads/:id/review", async (req, res) => {
   if (body.action === "reject" && ad.status !== "PENDING_REVIEW") fail("ALREADY_REVIEWED", 409);
 
   const now = new Date();
-  const data = { reviewedById: req.user.id, reviewedAt: now };
+  const data = { reviewedById: req.adminUser.id, reviewedAt: now };
   if (body.action === "approve") Object.assign(data, { status: "APPROVED", rejectReason: null, approvedAt: now, expiresAt: new Date(now.getTime() + LIMITS.adLifetimeDays * DAY) });
   if (body.action === "reject") Object.assign(data, { status: "REJECTED", rejectReason: body.reason });
   if (body.action === "remove") Object.assign(data, { status: "REMOVED", rejectReason: body.reason });
   await prisma.ad.update({ where: { id: ad.id }, data });
   if (body.action === "remove") {
-    await prisma.adReport.updateMany({ where: { adId: ad.id, status: "OPEN" }, data: { status: "RESOLVED", resolvedById: req.user.id, resolvedAt: now } });
+    await prisma.adReport.updateMany({ where: { adId: ad.id, status: "OPEN" }, data: { status: "RESOLVED", resolvedById: req.adminUser.id, resolvedAt: now } });
   }
   await audit(req, `${body.action.toUpperCase()}_AD`, "ad", ad.id, body.reason ? { reason: body.reason } : null);
   const kind = { approve: "adApproved", reject: "adRejected", remove: "adRemoved" }[body.action];
@@ -198,7 +198,7 @@ r.post("/reports/:id", async (req, res) => {
   if (!rep) fail("NOT_FOUND", 404);
   await prisma.adReport.update({
     where: { id: rep.id },
-    data: { status: body.action === "dismiss" ? "DISMISSED" : "RESOLVED", resolvedById: req.user.id, resolvedAt: new Date() },
+    data: { status: body.action === "dismiss" ? "DISMISSED" : "RESOLVED", resolvedById: req.adminUser.id, resolvedAt: new Date() },
   });
   await audit(req, body.action === "dismiss" ? "DISMISS_REPORT" : "RESOLVE_REPORT", "report", rep.id, { adId: rep.adId });
   res.json({ ok: true });

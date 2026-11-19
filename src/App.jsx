@@ -18,7 +18,7 @@ const Verify = lazy(() => import("./pages/Verify.jsx"));
 const PostAd = lazy(() => import("./pages/PostAd.jsx"));
 const MyAds = lazy(() => import("./pages/MyAds.jsx"));
 const Account = lazy(() => import("./pages/Account.jsx"));
-const Admin = lazy(() => import("./pages/Admin.jsx"));
+const AdminApp = lazy(() => import("./admin/AdminApp.jsx"));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -28,6 +28,19 @@ function ScrollToTop() {
 
 export default function App() {
   const { t } = useI18n();
+  const { pathname } = useLocation();
+
+  // The admin portal is a separate app: own layout and session, no public chrome or age gate.
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return (
+      <Suspense fallback={<Spinner />}>
+        <Routes>
+          <Route path="/admin/*" element={<AdminApp />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   return (
     <AuthProvider>
       <ScrollToTop />
@@ -49,7 +62,6 @@ export default function App() {
             <Route path="/post" element={<RequireRole role="PUBLISHER"><PostAd /></RequireRole>} />
             <Route path="/edit/:id" element={<RequireRole role="PUBLISHER"><PostAd /></RequireRole>} />
             <Route path="/my-ads" element={<RequireRole role="PUBLISHER"><MyAds /></RequireRole>} />
-            <Route path="/admin" element={<RequireRole role="ADMIN"><Admin /></RequireRole>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

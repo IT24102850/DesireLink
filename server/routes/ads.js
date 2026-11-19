@@ -65,7 +65,7 @@ function yearsAgo(n) {
   return new Date(Date.UTC(d.getUTCFullYear() - n, d.getUTCMonth(), d.getUTCDate()));
 }
 
-const canManage = (user, ad) => user && (user.role === "ADMIN" || user.id === ad.publisherId);
+const canManage = (req, ad) => Boolean(req.adminUser) || (req.user?.role === "PUBLISHER" && req.user.id === ad.publisherId);
 
 // ---- public listing -------------------------------------------------------------
 const listQuery = z.object({
@@ -121,7 +121,7 @@ r.get("/:id", async (req, res) => {
   const ad = await prisma.ad.findUnique({ where: { id: String(req.params.id) }, include: { photos: true } });
   if (!ad) fail("NOT_FOUND", 404);
   const isPublic = await prisma.ad.count({ where: { id: ad.id, ...publicWhere() } });
-  const manage = canManage(req.user, ad);
+  const manage = canManage(req, ad);
   if (!isPublic && !manage) fail("NOT_FOUND", 404);
   if (isPublic && !manage) await prisma.ad.update({ where: { id: ad.id }, data: { views: { increment: 1 } } });
   res.json(adView(ad, { full: true, owner: manage }));
@@ -295,6 +295,6 @@ media.get("/:file", async (req, res) => {
   const photo = await prisma.adPhoto.findUnique({ where: { key }, select: { ad: { select: { id: true, publisherId: true } } } });
   if (!photo) return res.status(404).end();
   const isPublic = await prisma.ad.count({ where: { id: photo.ad.id, ...publicWhere() } });
-  if (!isPublic && !canManage(req.user, photo.ad)) return res.status(404).end();
+  if (!isPublic && !canManage(req, photo.ad)) return res.status(404).end();
   sendImage(res, "media", key, { publicCache: Boolean(isPublic) });
 });
