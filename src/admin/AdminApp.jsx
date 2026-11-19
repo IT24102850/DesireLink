@@ -159,6 +159,7 @@ function PasswordStep({ onNext }) {
       </label>
       <ErrorText error={err} />
       <button className="btn glow block" disabled={busy}>{t("login")}</button>
+      <p className="form-links"><Link to="/forgot-password">{t("forgotPassword")}</Link></p>
     </form>
   );
 }
